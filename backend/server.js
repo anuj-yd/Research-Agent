@@ -1,14 +1,18 @@
 const express = require('express');
 const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
+const { Pool } = require('pg');
+const { PrismaPg } = require('@prisma/adapter-pg');
 const { ChatOpenAI } = require('@langchain/openai');
-const { StructuredOutputParser } = require('langchain/output_parsers');
+const { StructuredOutputParser } = require('@langchain/core/output_parsers');
 const { PromptTemplate } = require('@langchain/core/prompts');
 const { z } = require('zod');
 require('dotenv').config();
 
 const app = express();
-const prisma = new PrismaClient();
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 const port = process.env.PORT || 5000;
 
 app.use(cors());
