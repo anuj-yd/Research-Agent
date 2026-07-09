@@ -1,13 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 function App() {
-  const [symbol, setSymbol] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [inputSymbol, setInputSymbol] = useState(searchParams.get('symbol') || '');
+  const symbol = searchParams.get('symbol') || '';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
 
-  const analyzeCompany = async () => {
-    if (!symbol.trim()) return;
+  const analyzeCompany = async (querySymbol) => {
+    const targetSymbol = querySymbol || inputSymbol.trim();
+    if (!targetSymbol) return;
+    
+    if (querySymbol === undefined) {
+       setSearchParams({ symbol: targetSymbol });
+    }
+    
     setLoading(true);
     setError('');
     setData(null);
@@ -16,7 +25,7 @@ function App() {
       const response = await fetch(`http://localhost:5000/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: symbol.trim().toUpperCase() })
+        body: JSON.stringify({ query: targetSymbol.toUpperCase() })
       });
       const result = await response.json();
       
@@ -31,6 +40,13 @@ function App() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (symbol) {
+      setInputSymbol(symbol);
+      analyzeCompany(symbol);
+    }
+  }, [symbol]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-950 to-slate-950">
@@ -49,13 +65,13 @@ function App() {
           <input 
             type="text" 
             placeholder="e.g. AAPL, TSLA, MSFT" 
-            value={symbol}
-            onChange={(e) => setSymbol(e.target.value)}
+            value={inputSymbol}
+            onChange={(e) => setInputSymbol(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && analyzeCompany()}
             className="w-full sm:w-96 px-6 py-4 bg-slate-900/50 border border-slate-700/50 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent backdrop-blur-md transition-all shadow-inner placeholder-slate-500"
           />
           <button 
-            onClick={analyzeCompany} 
+            onClick={() => analyzeCompany()} 
             disabled={loading}
             className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold rounded-xl text-lg transition-all transform hover:-translate-y-0.5 hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
           >
@@ -83,9 +99,16 @@ function App() {
             <div className="flex flex-col md:flex-row justify-between items-center bg-slate-900/60 border border-slate-700/50 backdrop-blur-xl p-8 rounded-2xl shadow-2xl">
               <div className="text-center md:text-left mb-6 md:mb-0">
                 <h2 className="text-4xl font-bold text-white mb-2">{data.companyOverview?.name || symbol.toUpperCase()}</h2>
-                <span className="inline-block px-3 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg font-semibold tracking-wide">
-                  {symbol.toUpperCase()}
-                </span>
+                <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                  <span className="inline-block px-3 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg font-semibold tracking-wide">
+                    {symbol.toUpperCase()}
+                  </span>
+                  {data.dataSource && (
+                    <span className={`inline-block px-3 py-1 rounded-lg text-xs font-semibold border ${data.dataSource.includes('Real') ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                      {data.dataSource.includes('Real') ? '📡 Live Data' : '🧠 AI Knowledge Base'}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="text-center">
                 <p className="text-slate-400 text-sm uppercase tracking-wider mb-2 font-semibold">Recommendation</p>
