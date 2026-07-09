@@ -8,30 +8,49 @@ datasource db {
 
 model User {
   id        Int      @id @default(autoincrement())
+  name      String
   email     String   @unique
   password  String
   createdAt DateTime @default(now())
-  
-  searchHistory SearchHistory[]
-  reports       InvestmentReport[]
+
+  reports   InvestmentReport[]
+  watchlist Watchlist[]
+  searches  SearchHistory[]
+}
+
+model InvestmentReport {
+  id             Int      @id @default(autoincrement())
+  ticker         String
+  companyName    String   @default("")
+  recommendation String   @default("HOLD")
+  score          Int      @default(0)
+  reasoning      String   @default("") @db.Text
+  financialData  Json     @default("{}")
+  swot           Json     @default("{}")
+  fullReport     Json     @default("{}")
+  createdAt      DateTime @default(now())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+}
+
+model Watchlist {
+  id          Int      @id @default(autoincrement())
+  symbol      String
+  companyName String   @default("")
+  addedAt     DateTime @default(now())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, symbol])
 }
 
 model SearchHistory {
   id        Int      @id @default(autoincrement())
   query     String
   createdAt DateTime @default(now())
-  
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
-}
 
-model InvestmentReport {
-  id        Int      @id @default(autoincrement())
-  ticker    String
-  score     Int
-  swot      Json     // Store the strengths, weaknesses, opportunities, threats
-  createdAt DateTime @default(now())
-  
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
 }
