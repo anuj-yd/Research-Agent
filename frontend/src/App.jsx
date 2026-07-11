@@ -85,13 +85,6 @@ function Sidebar({ onAuthClick, onLogout }) {
         ))}
       </nav>
       <div className="flex flex-col items-center gap-2">
-        <button
-          className="w-12 h-12 rounded-lg flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white transition-all"
-          title={user ? 'Sign out' : 'Sign in'}
-          onClick={user ? onLogout : onAuthClick}
-        >
-          <SettingsIco />
-        </button>
       </div>
     </aside>
   );
@@ -99,23 +92,68 @@ function Sidebar({ onAuthClick, onLogout }) {
 
 // ---------------------------------------------------------------------------
 // Topbar
-// Displays the current user's avatar and name in the top-right corner.
-// Clicking the badge signs the user out if logged in, or opens auth modal.
+// Displays the signed-in user's avatar and first name in the top-right corner.
+// Clicking opens a dropdown menu with account info and a Sign Out option.
 // ---------------------------------------------------------------------------
 
 function Topbar({ onAuthClick }) {
   const { user, logout } = useAuth();
+  const [open, setOpen] = React.useState(false);
+
+  // Derive the first name only (e.g. "Anuj Yadav" → "Anuj")
+  const firstName = user?.name?.split(' ')[0] || 'User';
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [open]);
+
   return (
     <div className="flex justify-end items-center py-4 px-8 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800 z-10">
       {user ? (
-        <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full py-1 pr-4 pl-1 cursor-pointer hover:bg-zinc-800 hover:border-zinc-500 transition-all" onClick={logout} title="Click to sign out">
-          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-sm font-semibold text-white">{user.name?.[0]?.toUpperCase() || 'U'}</div>
-          <span className="text-sm font-medium text-white">{user.name}</span>
-          <ChevDown />
+        <div className="relative" onClick={e => e.stopPropagation()}>
+          {/* Badge trigger */}
+          <div
+            className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full py-1 pr-4 pl-1 cursor-pointer hover:bg-zinc-800 hover:border-zinc-500 transition-all select-none"
+            onClick={() => setOpen(v => !v)}
+          >
+            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-sm font-semibold text-white">
+              {user.name?.[0]?.toUpperCase() || 'U'}
+            </div>
+            <span className="text-sm font-medium text-white">{firstName}</span>
+            <span className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`}><ChevDown /></span>
+          </div>
+
+          {/* Dropdown menu */}
+          {open && (
+            <div className="absolute right-0 top-[calc(100%+8px)] w-56 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl overflow-hidden z-50">
+              {/* Account info header */}
+              <div className="px-4 py-3 border-b border-zinc-800">
+                <p className="text-sm font-semibold text-white">{user.name}</p>
+                <p className="text-xs text-zinc-400 mt-0.5 truncate">{user.email}</p>
+              </div>
+              {/* Sign out option */}
+              <button
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-red-400 transition-colors text-left"
+                onClick={() => { setOpen(false); logout(); }}
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       ) : (
-        <button className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full py-1 pr-4 pl-1 cursor-pointer hover:bg-zinc-800 hover:border-zinc-500 transition-all" onClick={onAuthClick} style={{ cursor: 'pointer' }}>
-          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-sm font-semibold text-white">?</div>
+        <button
+          className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full py-1 pr-4 pl-1 cursor-pointer hover:bg-zinc-800 hover:border-zinc-500 transition-all"
+          onClick={onAuthClick}
+        >
+          <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-sm font-semibold text-white">?</div>
           <span className="text-sm font-medium text-white">Sign In</span>
           <ChevDown />
         </button>
