@@ -51,7 +51,7 @@ export function ScoreRadar({ scores }) {
       <h4 className="chart-title">Investment Scores</h4>
       <ResponsiveContainer width="100%" height={220}>
         <RadarChart data={data} margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
-          <PolarGrid stroke="#e2e8f0" />
+          <PolarGrid stroke="var(--color-border-default)" />
           <PolarAngleAxis dataKey="subject" tick={{ fill: COLOR_MUTED, fontSize: 11 }} />
           <Radar
             dataKey="value"
@@ -96,7 +96,7 @@ export function MetricsBar({ financialAnalysis }) {
       <h4 className="chart-title">Key Metrics</h4>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-default)" />
           <XAxis dataKey="name" tick={{ fill: COLOR_MUTED, fontSize: 11 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill: COLOR_MUTED, fontSize: 10 }} axisLine={false} tickLine={false} />
           <Tooltip

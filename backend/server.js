@@ -130,7 +130,7 @@ app.get('/api/news/:symbol', async (req, res) => {
   // --- Gemini fallback: generate AI-sourced recent events ---
   try {
     console.log(`Yahoo Finance empty for ${sym} — using Gemini current affairs fallback`);
-    const llm    = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-3.5-flash', temperature: 0.3 });
+    const llm    = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-flash-latest', temperature: 0.3 });
     const prompt = `List the 6 most recent and significant news events or developments for the stock ${sym} that would matter to an investor. Include earnings results, product launches, executive changes, regulatory news, and analyst upgrades/downgrades. Format each as a JSON object with headline (string), source ("AI Research"), summary (string, 1-2 sentences), and datetime (approximate ISO date). Return ONLY a valid JSON array, no markdown.`;
     const result = await llm.invoke(prompt);
     const match  = result.content.match(/\[\s*\{[\s\S]*\}\s*\]/);
@@ -266,7 +266,7 @@ const currentAffairsTool = new DynamicStructuredTool({
   }),
   func: async ({ companyName, symbol }) => {
     try {
-      const llm    = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-3.5-flash', temperature: 0.3 });
+      const llm    = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-flash-latest', temperature: 0.3 });
       const prompt = `You are a financial news analyst. List the most important and recent developments for ${companyName} (${symbol.toUpperCase()}) that would affect an investment decision.
 
 Cover:
@@ -514,7 +514,7 @@ app.get('/api/news/:symbol', async (req, res) => {
   // --- Gemini fallback: generate AI-sourced recent events ---
   try {
     console.log(`Finnhub empty for ${sym} — using Gemini current affairs fallback`);
-    const llm    = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-3.5-flash', temperature: 0.3 });
+    const llm    = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-flash-latest', temperature: 0.3 });
     const prompt = `List the 6 most recent and significant news events or developments for the stock ${sym} that would matter to an investor. Include earnings results, product launches, executive changes, regulatory news, and analyst upgrades/downgrades. Format each as a JSON object with headline (string), source ("AI Research"), summary (string, 1-2 sentences), and datetime (approximate ISO date). Return ONLY a valid JSON array, no markdown.`;
     const result = await llm.invoke(prompt);
     const match  = result.content.match(/\[\s*\{[\s\S]*\}\s*\]/);
@@ -622,7 +622,7 @@ app.post('/api/analyze', optionalAuth, async (req, res) => {
 
     // Phase 2: Generate structured investment report
     // We use exactly ONE LLM call here, staying well within the 20 RPM Free Tier limit.
-    const llm = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-3.5-flash', temperature: 0.2 });
+    const llm = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-flash-latest', temperature: 0.2 });
     
     const formatInstructions = reportParser.getFormatInstructions();
     const reportPrompt = `You are a senior CFA-level investment analyst with access to both quantitative and qualitative research. Produce a complete, accurate investment report from the data below.
