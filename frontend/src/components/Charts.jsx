@@ -5,7 +5,6 @@
  * Exports:
  *   - ScoreRadar  — Radar chart of the five investment score dimensions
  *   - MetricsBar  — Horizontal bar chart for key financial metrics
- *   - CompareBar  — Side-by-side bar chart comparing two companies' scores
  */
 
 import React from 'react';
@@ -15,17 +14,18 @@ import {
 } from 'recharts';
 
 // Design tokens — keep consistent with index.css accent colours
-const COLOR_TEAL = '#00d4aa';
-const COLOR_BLUE = '#3b82f6';
-const COLOR_MUTED = '#7a7a9a';
+const COLOR_PRIMARY = '#8fbcfa';
+const COLOR_SECONDARY = '#a0aec0';
+const COLOR_MUTED = '#a0aec0';
 
-/** Shared tooltip style to match the dark UI theme. */
+/** Shared tooltip style to match the light UI theme. */
 const tooltipStyle = {
-  backgroundColor: '#12121f',
-  border:          '1px solid rgba(255,255,255,0.08)',
-  borderRadius:    8,
-  color:           '#e8e8f0',
+  backgroundColor: '#ffffff',
+  border:          '1px solid #e2e8f0',
+  borderRadius:    14,
+  color:           '#2d2b2b',
   fontSize:        12,
+  boxShadow:       '0px 2px 8px rgba(0,0,0,0.08)'
 };
 
 /**
@@ -51,14 +51,14 @@ export function ScoreRadar({ scores }) {
       <h4 className="chart-title">Investment Scores</h4>
       <ResponsiveContainer width="100%" height={220}>
         <RadarChart data={data} margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
-          <PolarGrid stroke="rgba(255,255,255,0.07)" />
+          <PolarGrid stroke="#e2e8f0" />
           <PolarAngleAxis dataKey="subject" tick={{ fill: COLOR_MUTED, fontSize: 11 }} />
           <Radar
             dataKey="value"
-            stroke={COLOR_TEAL}
-            fill={COLOR_TEAL}
+            stroke={COLOR_PRIMARY}
+            fill={COLOR_PRIMARY}
             fillOpacity={0.18}
-            dot={{ fill: COLOR_TEAL, r: 3 }}
+            dot={{ fill: COLOR_PRIMARY, r: 3 }}
           />
           <Tooltip contentStyle={tooltipStyle} />
         </RadarChart>
@@ -96,45 +96,17 @@ export function MetricsBar({ financialAnalysis }) {
       <h4 className="chart-title">Key Metrics</h4>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis dataKey="name" tick={{ fill: COLOR_MUTED, fontSize: 11 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill: COLOR_MUTED, fontSize: 10 }} axisLine={false} tickLine={false} />
           <Tooltip
             contentStyle={tooltipStyle}
             formatter={(_, __, props) => [props.payload.raw, 'Value']}
           />
-          <Bar dataKey="value" fill={COLOR_BLUE} radius={[4, 4, 0, 0]} maxBarSize={48} />
+          <Bar dataKey="value" fill={COLOR_PRIMARY} radius={[4, 4, 0, 0]} maxBarSize={48} />
         </BarChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-/**
- * CompareBar
- * Side-by-side horizontal bar chart displaying the investment scores of two companies.
- *
- * @param {{ symbol: string, score: number }} company1
- * @param {{ symbol: string, score: number }} company2
- */
-export function CompareBar({ company1, company2 }) {
-  const data = [
-    { metric: 'Score', [company1.symbol]: company1.score, [company2.symbol]: company2.score },
-  ];
-
-  return (
-    <div className="chart-wrapper">
-      <h4 className="chart-title">Score Comparison</h4>
-      <ResponsiveContainer width="100%" height={160}>
-        <BarChart data={data} layout="vertical" margin={{ left: 10, right: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-          <XAxis type="number" domain={[0, 100]} tick={{ fill: COLOR_MUTED, fontSize: 10 }} axisLine={false} />
-          <YAxis dataKey="metric" type="category" tick={{ fill: COLOR_MUTED, fontSize: 11 }} axisLine={false} />
-          <Tooltip contentStyle={tooltipStyle} />
-          <Bar dataKey={company1.symbol} fill={COLOR_TEAL} radius={[0, 4, 4, 0]} />
-          <Bar dataKey={company2.symbol} fill={COLOR_BLUE} radius={[0, 4, 4, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}

@@ -12,9 +12,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, useParams, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import api from './api';
 import AuthModal from './components/AuthModal';
-import { ScoreRadar, MetricsBar, CompareBar } from './components/Charts';
+import { ScoreRadar, MetricsBar } from './components/Charts';
 import NewsPanel from './components/NewsPanel';
 
 // ---------------------------------------------------------------------------
@@ -31,7 +30,6 @@ const Icon = ({ d, size = 18, strokeWidth = 1.8 }) => (
 const HomeIco    = () => <Icon d="M3 9.75L12 3l9 6.75V21a.75.75 0 01-.75.75H15.75a.75.75 0 01-.75-.75v-4.5h-6V21a.75.75 0 01-.75.75H3.75A.75.75 0 013 21V9.75z" />;
 const ReportsIco = () => <Icon d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />;
 const WatchIco   = () => <Icon d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />;
-const CompareIco = () => <Icon d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />;
 const SettingsIco= () => <Icon d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />;
 const ChevDown   = () => <Icon d="M6 9l6 6 6-6" size={12} strokeWidth={2.5} />;
 const BackIco    = () => <Icon d="M19 12H5M12 19l-7-7 7-7" size={14} strokeWidth={2} />;
@@ -61,7 +59,6 @@ function Sidebar({ onAuthClick, onLogout }) {
     { id: 'home',    path: '/',          Icon: HomeIco,    label: 'Home' },
     { id: 'reports', path: '/reports',   Icon: ReportsIco, label: 'Saved Reports' },
     { id: 'watch',   path: '/watchlist', Icon: WatchIco,   label: 'Watchlist' },
-    { id: 'compare', path: '/compare',   Icon: CompareIco, label: 'Compare' },
   ];
 
   const getActive = () => {
@@ -117,7 +114,7 @@ function Topbar({ onAuthClick }) {
         </div>
       ) : (
         <button className="user-badge" onClick={onAuthClick} style={{ cursor: 'pointer' }}>
-          <div className="user-avatar" style={{ background: 'rgba(255,255,255,0.1)' }}>?</div>
+          <div className="user-avatar">?</div>
           <span className="user-name">Sign In</span>
           <ChevDown />
         </button>
@@ -126,12 +123,7 @@ function Topbar({ onAuthClick }) {
   );
 }
 
-/** Decorative animated orb displayed on the home screen. */
-const AIOrb = () => (
-  <div className="orb-container">
-    <div className="orb" />
-  </div>
-);
+
 
 // ---------------------------------------------------------------------------
 // ChatInput
@@ -194,20 +186,18 @@ function HomeView({ onAnalyze, loading }) {
 
   const cards = [
     { tag: 'Research',      cls: 'teal',   desc: 'Analyze any stock or company ticker' },
-    { tag: 'Compare',       cls: 'pink',   desc: 'Compare two companies side by side' },
     { tag: 'Market Trends', cls: 'yellow', desc: 'Get sector & market overviews' },
   ];
 
   return (
     <div className="home-screen">
-      <AIOrb />
       <div className="greeting">
         <h1>Hey! Researcher<br />What can I help with?</h1>
       </div>
       <div className="quick-actions">
         {cards.map((c, i) => (
           <div key={i} className="action-card" onClick={() => setQ(`${c.tag}: `)}>
-            <span className={`action-tag ${c.cls}`}>{c.tag}</span>
+            <span className="action-tag">{c.tag}</span>
             <p className="action-desc">{c.desc}</p>
           </div>
         ))}
@@ -220,7 +210,7 @@ function HomeView({ onAnalyze, loading }) {
       />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 14, maxWidth: 620, width: '100%' }}>
         {quickPrompts.map((p, i) => (
-          <button key={i} className="pill-btn" onClick={() => onAnalyze(p)}>{p}</button>
+          <button key={i} className="btn-secondary" onClick={() => onAnalyze(p)}>{p}</button>
         ))}
       </div>
     </div>
@@ -238,10 +228,10 @@ function LoadingView({ query }) {
     <div className="loading-screen">
       <div className="loading-orb" />
       <p className="loading-text">
-        Analyzing <strong style={{ color: 'var(--accent-teal)' }}>{query?.toUpperCase()}</strong>
+        Analyzing <strong style={{ color: 'var(--color-surface-strong)' }}>{query?.toUpperCase()}</strong>
         <span className="loading-dots" />
       </p>
-      <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+      <p style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
         LangChain agent gathering financial data &amp; news…
       </p>
     </div>
@@ -428,7 +418,7 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
               {data.newsSentiment.keyHeadlines?.length > 0 && (
                 <ul className="swot-list" style={{ marginTop: 8 }}>
                   {data.newsSentiment.keyHeadlines.map((h, i) => (
-                    <li key={i}><span className="swot-dot" style={{ background: 'var(--accent-blue)' }} />{h}</li>
+                    <li key={i}><span className="swot-dot" style={{ background: 'var(--color-surface-strong)' }} />{h}</li>
                   ))}
                 </ul>
               )}
@@ -675,132 +665,6 @@ function WatchlistView({ onAnalyze }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// CompareView
-// Accepts two stock tickers and calls POST /api/compare to get a side-by-side
-// investment comparison from Gemini, displayed with score cards and a bar chart.
-// ---------------------------------------------------------------------------
-
-function CompareView() {
-  const [s1, setS1]           = useState('');
-  const [s2, setS2]           = useState('');
-  const [result, setResult]   = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
-
-  const compare = async () => {
-    if (!s1.trim() || !s2.trim()) return;
-    setLoading(true); setError(''); setResult(null);
-    try {
-      const r = await api.post('/api/compare', { symbol1: s1, symbol2: s2 });
-      setResult(r.data);
-    } catch (err) {
-      setError(err.response?.data?.error || err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="list-view animate-in">
-      <div className="list-view-header">
-        <h2 className="list-view-title">Compare Companies</h2>
-      </div>
-
-      <div className="compare-inputs">
-        <input className="compare-input" placeholder="Symbol 1 (e.g. AAPL)" value={s1} onChange={e => setS1(e.target.value)} />
-        <span className="compare-vs">VS</span>
-        <input className="compare-input" placeholder="Symbol 2 (e.g. MSFT)" value={s2} onChange={e => setS2(e.target.value)} />
-        <button
-          className="send-btn"
-          style={{ width: 44, height: 44 }}
-          onClick={compare}
-          disabled={loading || !s1.trim() || !s2.trim()}
-        >
-          {loading ? <span style={{ fontSize: 10 }}>…</span> : <SendIco />}
-        </button>
-      </div>
-
-      {error && <div className="error-box">⚠ {error}</div>}
-
-      {loading && (
-        <div className="loading-screen" style={{ flex: 'unset', paddingTop: 40 }}>
-          <div className="loading-orb" />
-          <p className="loading-text">Comparing<span className="loading-dots" /></p>
-        </div>
-      )}
-
-      {result && !loading && (
-        <div className="animate-in" style={{ marginTop: 24 }}>
-
-          {/* Winner declaration banner */}
-          <div className="winner-banner">
-            🏆 Better Investment: <strong style={{ color: 'var(--accent-teal)' }}>{result.winner}</strong>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8, fontWeight: 400 }}>
-              {result.winnerReason}
-            </p>
-          </div>
-
-          {/* Side-by-side company cards */}
-          <div className="compare-cards">
-            {[result.company1, result.company2].map((c, i) => (
-              <div key={i} className={`compare-company-card ${c?.symbol === result.winner ? 'winner' : ''}`}>
-                {c?.symbol === result.winner && <div className="winner-badge">🏆 Winner</div>}
-                <div className="compare-symbol">{c?.symbol}</div>
-                <div className="compare-name">{c?.name}</div>
-                <div className="compare-score-big">
-                  {c?.score}<span style={{ fontSize: 14, color: 'var(--text-muted)' }}>/100</span>
-                </div>
-                <div
-                  className={`rec-value ${c?.recommendation === 'BUY' ? 'rec-buy' : c?.recommendation === 'PASS' ? 'rec-sell' : 'rec-hold'}`}
-                  style={{ fontSize: 13, padding: '4px 14px', marginBottom: 14 }}
-                >
-                  {c?.recommendation}
-                </div>
-                {c?.strengths?.length > 0 && (
-                  <>
-                    <div style={{ fontSize: 11, color: 'var(--accent-teal)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.8px', marginBottom: 6 }}>
-                      Strengths
-                    </div>
-                    <ul className="swot-list" style={{ marginBottom: 10 }}>
-                      {c.strengths.map((s, j) => (
-                        <li key={j}><span className="swot-dot" style={{ background: 'var(--accent-teal)' }} />{s}</li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-                {c?.weaknesses?.length > 0 && (
-                  <>
-                    <div style={{ fontSize: 11, color: '#f87171', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.8px', marginBottom: 6 }}>
-                      Weaknesses
-                    </div>
-                    <ul className="swot-list">
-                      {c.weaknesses.map((w, j) => (
-                        <li key={j}><span className="swot-dot" style={{ background: '#f87171' }} />{w}</li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-                {c?.metrics && (
-                  <div className="compare-metrics">
-                    {Object.entries(c.metrics).map(([k, v]) => (
-                      <div key={k} className="compare-metric"><span>{k}</span><strong>{v}</strong></div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Score comparison bar chart */}
-          {result.company1 && result.company2 && (
-            <CompareBar company1={result.company1} company2={result.company2} />
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /** Shown when the analysis API returns an error. */
 function ErrorBox({ msg, onBack }) {
@@ -854,7 +718,6 @@ function AppInner() {
 
   return (
     <div className="app-shell">
-      <div className="grid-bg" />
       <Sidebar
         onAuthClick={() => setShowAuth(true)}
         onLogout={logout}
@@ -868,7 +731,6 @@ function AppInner() {
           <Route path="/analyze/:symbol" element={<AnalyzeRoute />} />
           <Route path="/reports" element={<SavedReportsView onAnalyze={handleAnalyze} />} />
           <Route path="/watchlist" element={<WatchlistView onAnalyze={handleAnalyze} />} />
-          <Route path="/compare" element={<CompareView />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>

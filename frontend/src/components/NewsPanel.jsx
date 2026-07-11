@@ -37,7 +37,7 @@ export default function NewsPanel({ symbol }) {
     return (
       <div className="panel">
         <div className="panel-title">📰 Latest News</div>
-        <div style={{ color: 'var(--text-muted)', fontSize: 13, padding: '12px 0' }}>
+        <div style={{ color: 'var(--color-text-secondary)', fontSize: 13, padding: '12px 0' }}>
           Fetching news<span className="loading-dots" />
         </div>
       </div>
@@ -48,7 +48,7 @@ export default function NewsPanel({ symbol }) {
     return (
       <div className="panel">
         <div className="panel-title">📰 Latest News</div>
-        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+        <p style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>
           No recent news found for this symbol.
         </p>
       </div>

@@ -687,71 +687,7 @@ ${formatInstructions}`;
 });
 
 // ---------------------------------------------------------------------------
-// Comparison Route
-// ---------------------------------------------------------------------------
 
-/**
- * POST /api/compare
- * Fetches fundamental data for two tickers in parallel using financialTool,
- * then asks Gemini to produce a structured side-by-side comparison.
- */
-app.post('/api/compare', async (req, res) => {
-  try {
-    const { symbol1, symbol2 } = req.body;
-    if (!symbol1 || !symbol2)
-      return res.status(400).json({ error: 'Both symbol1 and symbol2 are required' });
-
-    const llm = new ChatGoogleGenerativeAI({
-      apiKey:      process.env.GEMINI_API_KEY,
-      model:       'gemini-3.5-flash',
-      temperature: 0.2,
-    });
-
-    const [data1, data2] = await Promise.all([
-      financialTool.invoke({ symbol: symbol1 }),
-      financialTool.invoke({ symbol: symbol2 }),
-    ]);
-
-    const prompt = `Compare these two companies as investment opportunities:
-
-COMPANY A (${symbol1.toUpperCase()}): ${data1}
-
-COMPANY B (${symbol2.toUpperCase()}): ${data2}
-
-Return ONLY valid JSON (no markdown fences) in this exact format:
-{
-  "company1": {
-    "symbol": "${symbol1.toUpperCase()}",
-    "name": "...",
-    "score": 75,
-    "recommendation": "BUY",
-    "strengths": ["...", "..."],
-    "weaknesses": ["...", "..."],
-    "metrics": { "pe": "...", "growth": "...", "margin": "..." }
-  },
-  "company2": {
-    "symbol": "${symbol2.toUpperCase()}",
-    "name": "...",
-    "score": 68,
-    "recommendation": "HOLD",
-    "strengths": ["...", "..."],
-    "weaknesses": ["...", "..."],
-    "metrics": { "pe": "...", "growth": "...", "margin": "..." }
-  },
-  "winner": "${symbol1.toUpperCase()}",
-  "winnerReason": "One paragraph explaining which is the better investment and why, citing specific numbers.",
-  "overallRecommendation": "..."
-}`;
-
-    const r         = await llm.invoke(prompt);
-    const jsonMatch = r.content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return res.status(500).json({ error: 'Could not parse comparison result' });
-    res.json(JSON.parse(jsonMatch[0]));
-  } catch (err) {
-    console.error('Compare error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // ---------------------------------------------------------------------------
 // Saved Reports Routes

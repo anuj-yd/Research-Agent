@@ -117,17 +117,17 @@ export default function AuthModal({ onClose }) {
             />
           </div>
 
-          {error && <div className="form-error">{error}</div>}
+          {error && <div className="error-box" style={{ padding: 10, marginTop: 10 }}>{error}</div>}
 
-          <button className="form-submit" type="submit" disabled={loading}>
+          <button className="btn-primary" type="submit" disabled={loading} style={{ width: '100%', marginTop: 'var(--space-4)' }}>
             {loading ? 'Please wait…' : tab === 'login' ? 'Sign In' : 'Create Account'}
           </button>
         </form>
 
-        <p className="modal-footer-note">
+        <p style={{ marginTop: 'var(--space-6)', textAlign: 'center', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
           {tab === 'login' ? "Don't have an account? " : 'Already have an account? '}
           <button
-            className="modal-switch-link"
+            style={{ background: 'none', border: 'none', color: 'var(--color-surface-strong)', fontWeight: 500, cursor: 'pointer' }}
             onClick={() => switchTab(tab === 'login' ? 'register' : 'login')}
           >
             {tab === 'login' ? 'Register' : 'Sign In'}
