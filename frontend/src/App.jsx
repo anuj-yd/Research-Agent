@@ -70,23 +70,23 @@ function Sidebar({ onAuthClick, onLogout }) {
   const activeId = getActive();
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-logo">AI</div>
-      <nav className="sidebar-nav">
+    <aside className="w-[80px] h-full bg-zinc-900 border-r border-zinc-800 flex flex-col items-center py-6 gap-4 z-10 shrink-0">
+      <div className="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-400 rounded-lg flex items-center justify-center font-bold font-heading text-white mb-6 shadow-lg shadow-blue-500/20">AI</div>
+      <nav className="flex flex-col items-center gap-2 flex-1">
         {navItems.map(({ id, path, Icon: I, label }) => (
           <button
             key={id}
             title={label}
-            className={`nav-btn ${activeId === id ? 'active' : ''}`}
+            className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all ${activeId === id ? 'bg-zinc-800/50 text-blue-500 shadow-[inset_2px_0_0_#3b82f6]' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
             onClick={() => navigate(path)}
           >
             <I />
           </button>
         ))}
       </nav>
-      <div className="sidebar-bottom">
+      <div className="flex flex-col items-center gap-2">
         <button
-          className="nav-btn"
+          className="w-12 h-12 rounded-lg flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-white transition-all"
           title={user ? 'Sign out' : 'Sign in'}
           onClick={user ? onLogout : onAuthClick}
         >
@@ -106,17 +106,17 @@ function Sidebar({ onAuthClick, onLogout }) {
 function Topbar({ onAuthClick }) {
   const { user, logout } = useAuth();
   return (
-    <div className="topbar">
+    <div className="flex justify-end items-center py-4 px-8 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800 z-10">
       {user ? (
-        <div className="user-badge" onClick={logout} title="Click to sign out">
-          <div className="user-avatar">{user.name?.[0]?.toUpperCase() || 'U'}</div>
-          <span className="user-name">{user.name}</span>
+        <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full py-1 pr-4 pl-1 cursor-pointer hover:bg-zinc-800 hover:border-zinc-500 transition-all" onClick={logout} title="Click to sign out">
+          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-sm font-semibold text-white">{user.name?.[0]?.toUpperCase() || 'U'}</div>
+          <span className="text-sm font-medium text-white">{user.name}</span>
           <ChevDown />
         </div>
       ) : (
-        <button className="user-badge" onClick={onAuthClick} style={{ cursor: 'pointer' }}>
-          <div className="user-avatar">?</div>
-          <span className="user-name">Sign In</span>
+        <button className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full py-1 pr-4 pl-1 cursor-pointer hover:bg-zinc-800 hover:border-zinc-500 transition-all" onClick={onAuthClick} style={{ cursor: 'pointer' }}>
+          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-sm font-semibold text-white">?</div>
+          <span className="text-sm font-medium text-white">Sign In</span>
           <ChevDown />
         </button>
       )}
@@ -132,7 +132,7 @@ function Topbar({ onAuthClick }) {
 // Submits on Enter (Shift+Enter inserts a newline).
 // ---------------------------------------------------------------------------
 
-function ChatInput({ value, onChange, onSubmit, loading, placeholder = 'Ask me anything.......' }) {
+function ChatInput({ value, onChange, onSubmit, loading, placeholder = 'Enter Company Name' }) {
   const ref = useRef(null);
 
   const handleKey = (e) => {
@@ -143,28 +143,27 @@ function ChatInput({ value, onChange, onSubmit, loading, placeholder = 'Ask me a
   };
 
   return (
-    <div className="chat-input-box">
-      <div className="input-top">
-        <span className="sparkle-icon"><SparkIco /></span>
-        <textarea
-          ref={ref}
-          rows={1}
-          className="chat-textarea"
-          placeholder={placeholder}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          onKeyDown={handleKey}
-        />
-      </div>
-      <div className="input-bottom">
-        <button
-          className="send-btn"
-          onClick={onSubmit}
-          disabled={!value.trim() || loading}
-        >
-          <SendIco />
-        </button>
-      </div>
+    <div className="w-full max-w-[700px] bg-zinc-900 border border-zinc-800 rounded-full px-5 py-3 flex items-center gap-3 shadow-lg focus-within:border-zinc-600 transition-all">
+      <input
+        ref={ref}
+        type="text"
+        className="flex-1 bg-transparent border-none outline-none text-white text-base font-sans placeholder-zinc-500"
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={handleKey}
+      />
+      <button
+        className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center shrink-0 cursor-pointer hover:bg-blue-400 hover:scale-105 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100"
+        onClick={onSubmit}
+        disabled={!value.trim() || loading}
+        title="Analyze"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="19" x2="12" y2="5" />
+          <polyline points="5 12 12 5 19 12" />
+        </svg>
+      </button>
     </div>
   );
 }
@@ -178,30 +177,11 @@ function ChatInput({ value, onChange, onSubmit, loading, placeholder = 'Ask me a
 function HomeView({ onAnalyze, loading }) {
   const [q, setQ] = useState('');
 
-  const quickPrompts = [
-    'Analyze AAPL',
-    'Research TSLA fundamentals',
-    'MSFT investment thesis',
-    'NVDA growth prospects',
-  ];
-
-  const cards = [
-    { tag: 'Research',      cls: 'teal',   desc: 'Analyze any stock or company ticker' },
-    { tag: 'Market Trends', cls: 'yellow', desc: 'Get sector & market overviews' },
-  ];
 
   return (
-    <div className="home-screen">
-      <div className="greeting">
-        <h1>Hey! Researcher<br />What can I help with?</h1>
-      </div>
-      <div className="quick-actions">
-        {cards.map((c, i) => (
-          <div key={i} className="action-card" onClick={() => setQ(`${c.tag}: `)}>
-            <span className="action-tag">{c.tag}</span>
-            <p className="action-desc">{c.desc}</p>
-          </div>
-        ))}
+    <div className="flex-1 flex flex-col items-center justify-center px-8 pb-8 overflow-y-auto bg-[radial-gradient(circle_at_center,_#131316_0%,_#09090b_100%)]">
+      <div className="text-center w-full max-w-[620px] mb-8">
+        <h1 className="font-heading text-3xl md:text-4xl font-semibold text-white leading-tight tracking-tight">Hey! Investor<br />Which company should I analyze?</h1>
       </div>
       <ChatInput
         value={q}
@@ -209,11 +189,6 @@ function HomeView({ onAnalyze, loading }) {
         onSubmit={() => { if (q.trim()) onAnalyze(q.trim()); }}
         loading={loading}
       />
-      <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', justifyContent: 'center', marginTop: 'var(--space-6)', maxWidth: 620, width: '100%' }}>
-        {quickPrompts.map((p, i) => (
-          <button key={i} className="btn-secondary" onClick={() => onAnalyze(p)}>{p}</button>
-        ))}
-      </div>
     </div>
   );
 }
@@ -226,13 +201,13 @@ function HomeView({ onAnalyze, loading }) {
 
 function LoadingView({ query }) {
   return (
-    <div className="loading-screen">
-      <div className="loading-orb" />
-      <p className="loading-text">
-        Analyzing <strong style={{ color: 'var(--color-surface-strong)' }}>{query?.toUpperCase()}</strong>
-        <span className="loading-dots" />
+    <div className="flex-1 flex flex-col items-center justify-center gap-6 bg-zinc-950">
+      <div className="w-12 h-12 rounded-full border-4 border-zinc-800 border-t-blue-500 animate-spin" />
+      <p className="text-lg text-white font-medium tracking-wide flex items-center gap-1">
+        Analyzing <strong className="text-blue-500">{query?.toUpperCase()}</strong>
+        <span className="after:content-[''] after:animate-ping after:w-1 after:h-1 after:bg-white after:rounded-full after:ml-1 after:inline-block" />
       </p>
-      <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+      <p className="text-xs text-zinc-400">
         LangChain agent gathering financial data &amp; news…
       </p>
     </div>
@@ -315,22 +290,22 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
   ];
 
   return (
-    <div className="results-screen">
-      <div className="results-wrapper animate-in">
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 max-w-[1400px] mx-auto w-full animate-[fadeIn_0.4s_ease-out_forwards]">
 
         {/* Navigation and action toolbar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-5)', marginBottom: 'var(--space-8)' }}>
-          <button className="back-btn" onClick={onBack}><BackIco /> Back to home</button>
-          <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-8">
+          <button className="inline-flex items-center justify-center gap-1.5 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded-xl py-2 px-5 text-sm font-medium cursor-pointer hover:bg-zinc-800 hover:text-white hover:border-zinc-500 transition-all" onClick={onBack}><BackIco /> Back to home</button>
+          <div className="flex gap-2">
             <button
-              className={`action-icon-btn ${watched ? 'active-teal' : ''}`}
+              className={`inline-flex items-center justify-center gap-1.5 border rounded-xl py-2 px-4 text-sm font-medium cursor-pointer transition-all ${watched ? 'bg-blue-500 text-white border-blue-500' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800 hover:text-white hover:border-zinc-400'}`}
               onClick={addWatch}
               title="Add to watchlist"
             >
               <WatchIco /> {watched ? 'Watching' : 'Watch'}
             </button>
             <button
-              className={`action-icon-btn ${saved ? 'active-teal' : ''}`}
+              className={`inline-flex items-center justify-center gap-1.5 border rounded-xl py-2 px-4 text-sm font-medium cursor-pointer transition-all ${saved ? 'bg-blue-500 text-white border-blue-500' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800 hover:text-white hover:border-zinc-400'}`}
               onClick={saveReport}
               disabled={saving}
               title="Save report"
@@ -341,85 +316,82 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
         </div>
 
         {/* Company header and recommendation */}
-        <div className="result-header">
+        <div className="flex items-center justify-between flex-wrap gap-6 mb-8">
           <div>
-            <div className="result-company">{data.companyOverview?.name || symbol.toUpperCase()}</div>
-            <div className="result-badges" style={{ marginTop: 'var(--space-4)' }}>
-              <span className="badge badge-blue">{symbol.toUpperCase()}</span>
+            <div className="font-heading text-3xl font-bold text-white tracking-tight">{data.companyOverview?.name || symbol.toUpperCase()}</div>
+            <div className="flex gap-2 flex-wrap mt-2">
+              <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border bg-blue-500/10 text-blue-400 border-blue-500/30">{symbol.toUpperCase()}</span>
               {typeof data.dataSource === 'string' && (
-                <span className={`badge ${data.dataSource.includes('Real') ? 'badge-green' : 'badge-amber'}`}>
+                <span className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${data.dataSource.includes('Real') ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' : 'bg-amber-500/10 text-amber-500 border-amber-500/30'}`}>
                   {data.dataSource.includes('Real') ? '📡 Live Data' : '🧠 AI Knowledge Base'}
                 </span>
               )}
               {data.cached && (
-                <span className="badge badge-purple" title="Report retrieved from cache (generated within last 24h)">
+                <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border bg-purple-500/10 text-purple-400 border-purple-500/30" title="Report retrieved from cache (generated within last 24h)">
                   ⚡ Cached Report
                 </span>
               )}
             </div>
           </div>
-          <div className="recommendation-box">
-            <div className="rec-label">Recommendation</div>
-            <div className={`rec-value ${recCls}`}>{data.recommendation || 'HOLD'}</div>
+          <div className="flex flex-col items-end">
+            <div className="text-xs uppercase tracking-widest text-zinc-400 mb-1">Recommendation</div>
+            <div className={`font-heading text-2xl font-bold tracking-wide px-5 py-2 rounded-xl border-2 shadow-[0_0_20px_rgba(0,0,0,0.1)] ${recCls === 'rec-buy' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500' : recCls === 'rec-sell' ? 'bg-red-500/10 text-red-500 border-red-500' : 'bg-amber-500/10 text-amber-500 border-amber-500'}`}>{data.recommendation || 'HOLD'}</div>
           </div>
         </div>
 
         {/* Score summary cards */}
-        <div className="scores-grid">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
           {scores.map((s, i) => (
-            <div key={i} className="score-card">
-              <div className="score-label">{s.label}</div>
-              <div className="score-value">{s.value ?? '--'}</div>
+            <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-center hover:-translate-y-1 hover:shadow-lg hover:border-zinc-600 transition-all group relative overflow-hidden">
+              <div className="text-xs uppercase tracking-widest text-zinc-400 font-medium mb-2">{s.label}</div>
+              <div className="font-heading text-2xl font-bold text-white">{s.value ?? '--'}</div>
             </div>
           ))}
         </div>
 
         {/* Recharts visualisations */}
-        <div className="charts-row">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <ScoreRadar scores={data.investmentScore} />
           <MetricsBar financialAnalysis={data.financialAnalysis} />
         </div>
 
         {/* Detail panels */}
-        <div className="panels-grid">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
           {/* Investment thesis and confidence */}
-          <div className="panel">
-            <div className="panel-title">⚡ Investment Thesis</div>
-            <p className="thesis-text">{data.reasoning || 'No reasoning available.'}</p>
-            <div className="confidence-block">
-              <span className="confidence-label">Confidence: </span>
-              <span className="confidence-value">{data.confidenceLevel || 'Medium'}</span>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md">
+            <div className="font-heading text-xl font-semibold text-white mb-4 flex items-center gap-2">⚡ Investment Thesis</div>
+            <p className="text-base text-zinc-400 leading-relaxed mb-6">{data.reasoning || 'No reasoning available.'}</p>
+            <div className="bg-white/5 border-l-4 border-blue-500 rounded-r-xl p-4">
+              <span className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">Confidence: </span>
+              <span className="text-white font-semibold ml-2">{data.confidenceLevel || 'Medium'}</span>
               {data.confidenceExplanation && (
-                <p className="confidence-note">{data.confidenceExplanation}</p>
+                <p className="text-sm text-zinc-500 mt-2 leading-relaxed">{data.confidenceExplanation}</p>
               )}
             </div>
           </div>
 
           {/* News Sentiment Panel — derived from Finnhub + Gemini current affairs */}
           {data.newsSentiment && (
-            <div className="panel">
-              <div className="panel-title">📡 News Sentiment</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md">
+              <div className="font-heading text-xl font-semibold text-white mb-4 flex items-center gap-2">📡 News Sentiment</div>
+              <div className="flex items-center gap-4 mb-4">
                 <span
-                  className={`rec-value ${
-                    data.newsSentiment.sentiment === 'Bullish' ? 'rec-buy'
-                    : data.newsSentiment.sentiment === 'Bearish' ? 'rec-sell'
-                    : 'rec-hold'
-                  }`}
-                  style={{ fontSize: 'var(--font-size-xs)', padding: 'var(--space-2) var(--space-7)' }}
+                  className={`font-heading font-bold tracking-wide rounded-xl border-2 shadow-lg text-xs px-5 py-1 ${data.newsSentiment.sentiment === 'Bullish' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500' : data.newsSentiment.sentiment === 'Bearish' ? 'bg-red-500/10 text-red-500 border-red-500' : 'bg-amber-500/10 text-amber-500 border-amber-500'}`}
                 >
                   {data.newsSentiment.sentiment === 'Bullish' ? '📈 ' : data.newsSentiment.sentiment === 'Bearish' ? '📉 ' : '➡️ '}
                   {data.newsSentiment.sentiment}
                 </span>
-                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: 0, flex: 1 }}>
+                <p className="text-xs text-zinc-400 m-0 flex-1">
                   {data.newsSentiment.newsImpact}
                 </p>
               </div>
               {Array.isArray(data.newsSentiment.keyHeadlines) && data.newsSentiment.keyHeadlines.length > 0 && (
-                <ul className="swot-list" style={{ marginTop: 'var(--space-4)' }}>
+                <ul className="flex flex-col gap-3 mt-2">
                   {data.newsSentiment.keyHeadlines.map((h, i) => (
-                    <li key={i}><span className="swot-dot" style={{ background: 'var(--color-surface-strong)' }} />{h}</li>
+                    <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+                      <span className="w-2 h-2 rounded-full shrink-0 mt-1.5 bg-blue-500" />{h}
+                    </li>
                   ))}
                 </ul>
               )}
@@ -427,28 +399,28 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
           )}
 
           {/* Key financial metrics */}
-          <div className="panel">
-            <div className="panel-title">📊 Financial Overview</div>
-            <div className="metrics-grid">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md">
+            <div className="font-heading text-xl font-semibold text-white mb-4 flex items-center gap-2">📊 Financial Overview</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {metrics.map((m, i) => (
-                <div key={i} className="metric-item">
-                  <div className="metric-label">{m.label}</div>
-                  <div className="metric-value">{m.value || '--'}</div>
+                <div key={i} className="bg-white/5 border border-white/10 rounded-xl px-5 py-4 flex flex-col justify-center hover:bg-white/10 transition-colors">
+                  <div className="text-xs text-zinc-400 uppercase tracking-wide mb-1">{m.label}</div>
+                  <div className="font-heading text-xl font-semibold text-white">{m.value || '--'}</div>
                 </div>
               ))}
             </div>
           </div>
 
           {/* SWOT analysis grid */}
-          <div className="panel full">
-            <div className="panel-title">SWOT Analysis</div>
-            <div className="swot-grid">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md lg:col-span-2">
+            <div className="font-heading text-xl font-semibold text-white mb-4 flex items-center gap-2">SWOT Analysis</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {swotSections.map(s => (
-                <div key={s.key} className={`swot-item ${s.cls}`}>
-                  <div className="swot-heading">{s.label}</div>
-                  <ul className="swot-list">
+                <div key={s.key} className={`bg-white/5 border border-white/10 rounded-2xl p-5 border-t-4 ${s.key === 'strengths' ? 'border-t-emerald-500' : s.key === 'weaknesses' ? 'border-t-red-500' : s.key === 'opportunities' ? 'border-t-blue-500' : 'border-t-amber-500'}`}>
+                  <div className="font-heading text-lg font-semibold mb-3 text-white">{s.label}</div>
+                  <ul className="flex flex-col gap-3">
                     {Array.isArray(s.data) ? s.data.map((item, i) => (
-                      <li key={i}><span className="swot-dot" />{item}</li>
+                      <li key={i}><span className="w-2 h-2 rounded-full shrink-0 mt-1.5 bg-zinc-500" />{item}</li>
                     )) : null}
                   </ul>
                 </div>
@@ -456,8 +428,8 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
             </div>
           </div>
 
-          {/* Live news panel (Finnhub) */}
-          <div className="full">
+          {/* Live news panel — headlines from Finnhub for the analyzed symbol */}
+          <div className="lg:col-span-2">
             <NewsPanel symbol={symbol} />
           </div>
 
@@ -465,7 +437,7 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
       </div>
 
       {/* Follow-up query input */}
-      <div className="results-input-area">
+      <div className="px-8 py-6 flex flex-col items-center bg-zinc-950/90 backdrop-blur-md border-t border-zinc-800 z-10">
         <ChatInput
           value={q}
           onChange={setQ}
@@ -524,60 +496,59 @@ function SavedReportsView({ onAnalyze }) {
   };
 
   if (!user) return (
-    <div className="empty-view">
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-zinc-400 text-center">
       <ReportsIco />
-      <h3>Sign in to view saved reports</h3>
+      <h3 className="font-heading text-xl text-white font-semibold">Sign in to view saved reports</h3>
       <p>Your research reports will appear here once you sign in.</p>
     </div>
   );
 
   if (loading) return (
-    <div className="loading-screen">
-      <div className="loading-orb" />
-      <p className="loading-text">Loading reports<span className="loading-dots" /></p>
+    <div className="flex-1 flex flex-col items-center justify-center gap-6 bg-zinc-950">
+      <div className="w-12 h-12 rounded-full border-4 border-zinc-800 border-t-blue-500 animate-spin" />
+      <p className="text-lg text-white font-medium tracking-wide flex items-center gap-1">Loading reports<span className="after:content-[''] after:animate-ping after:w-1 after:h-1 after:bg-white after:rounded-full after:ml-1 after:inline-block" /></p>
     </div>
   );
 
   if (!reports.length) return (
-    <div className="empty-view">
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-zinc-400 text-center">
       <ReportsIco />
-      <h3>No saved reports yet</h3>
+      <h3 className="font-heading text-xl text-white font-semibold">No saved reports yet</h3>
       <p>Analyze a company and click "Save Report" to store it here.</p>
     </div>
   );
 
   return (
-    <div className="list-view animate-in">
-      <div className="list-view-header">
-        <h2 className="list-view-title">Saved Reports</h2>
-        <span className="list-view-count">{reports.length} report{reports.length !== 1 ? 's' : ''}</span>
+    <div className="flex-1 overflow-y-auto p-8 max-w-[1200px] mx-auto w-full animate-[fadeIn_0.4s_ease-out_forwards]">
+      <div className="flex items-center justify-between mb-6 border-b border-zinc-800 pb-4">
+        <h2 className="font-heading text-2xl font-semibold text-white">Saved Reports</h2>
+        <span className="text-sm text-zinc-400 bg-white/5 px-3 py-1 rounded-full font-semibold">{reports.length} report{reports.length !== 1 ? 's' : ''}</span>
       </div>
-      <div className="report-list">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {reports.map(r => (
-          <div key={r.id} className="report-card">
-            <div className="report-card-left">
-              <div className="report-ticker">{r.ticker}</div>
-              <div className="report-company">{r.companyName}</div>
-              <div className="report-date">
+          <div key={r.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex justify-between items-center hover:-translate-y-0.5 hover:border-blue-500 hover:shadow-lg transition-all">
+            <div className="flex flex-col gap-1">
+              <div className="font-heading text-lg font-bold text-white tracking-wide">{r.ticker}</div>
+              <div className="text-sm text-zinc-400">{r.companyName}</div>
+              <div className="text-[11px] text-zinc-500 uppercase tracking-wide mt-1">
                 {new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </div>
             </div>
-            <div className="report-card-right">
+            <div className="flex items-center gap-4">
               <div
-                className={`rec-badge ${r.recommendation === 'BUY' ? 'rec-buy' : r.recommendation === 'PASS' ? 'rec-sell' : 'rec-hold'}`}
-                style={{ fontSize: 'var(--font-size-xs)', padding: 'var(--space-2) var(--space-5)' }}
+                className={`font-heading font-bold rounded-xl border-2 shadow-sm text-xs px-3 py-1 ${r.recommendation === 'BUY' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500' : r.recommendation === 'PASS' ? 'bg-red-500/10 text-red-500 border-red-500' : 'bg-amber-500/10 text-amber-500 border-amber-500'}`}
               >
                 {r.recommendation}
               </div>
-              <div className="report-score">{r.score}/100</div>
-              <div className="report-actions">
-                <button className="icon-action-btn" title="Re-analyze" onClick={() => onAnalyze(r.ticker)}>
+              <div className="font-heading text-2xl font-bold text-white">{r.score}/100</div>
+              <div className="flex gap-2">
+                <button className="inline-flex items-center justify-center p-2 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded-lg hover:bg-zinc-800 hover:text-white hover:border-zinc-400 transition-all" title="Re-analyze" onClick={() => onAnalyze(r.ticker)}>
                   <SearchIco />
                 </button>
-                <button className="icon-action-btn" title="Download PDF" onClick={() => handlePdf(r.id, r.ticker)}>
+                <button className="inline-flex items-center justify-center p-2 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded-lg hover:bg-zinc-800 hover:text-white hover:border-zinc-400 transition-all" title="Download PDF" onClick={() => handlePdf(r.id, r.ticker)}>
                   <PDFIco />
                 </button>
-                <button className="icon-action-btn danger" title="Delete" onClick={() => handleDelete(r.id)}>
+                <button className="inline-flex items-center justify-center p-2 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded-lg hover:bg-red-500/10 hover:text-red-500 hover:border-red-500 transition-all" title="Delete" onClick={() => handleDelete(r.id)}>
                   <TrashIco />
                 </button>
               </div>
@@ -614,47 +585,47 @@ function WatchlistView({ onAnalyze }) {
   };
 
   if (!user) return (
-    <div className="empty-view">
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-zinc-400 text-center">
       <WatchIco />
-      <h3>Sign in to use your watchlist</h3>
+      <h3 className="font-heading text-xl text-white font-semibold">Sign in to use your watchlist</h3>
       <p>Track your favourite stocks by adding them to your watchlist.</p>
     </div>
   );
 
   if (loading) return (
-    <div className="loading-screen">
-      <div className="loading-orb" />
-      <p className="loading-text">Loading watchlist<span className="loading-dots" /></p>
+    <div className="flex-1 flex flex-col items-center justify-center gap-6 bg-zinc-950">
+      <div className="w-12 h-12 rounded-full border-4 border-zinc-800 border-t-blue-500 animate-spin" />
+      <p className="text-lg text-white font-medium tracking-wide flex items-center gap-1">Loading watchlist<span className="after:content-[''] after:animate-ping after:w-1 after:h-1 after:bg-white after:rounded-full after:ml-1 after:inline-block" /></p>
     </div>
   );
 
   if (!list.length) return (
-    <div className="empty-view">
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-zinc-400 text-center">
       <WatchIco />
-      <h3>Your watchlist is empty</h3>
+      <h3 className="font-heading text-xl text-white font-semibold">Your watchlist is empty</h3>
       <p>Analyze a company and click "Watch" to add it here.</p>
     </div>
   );
 
   return (
-    <div className="list-view animate-in">
-      <div className="list-view-header">
-        <h2 className="list-view-title">Watchlist</h2>
-        <span className="list-view-count">{list.length} stock{list.length !== 1 ? 's' : ''}</span>
+    <div className="flex-1 overflow-y-auto p-8 max-w-[1200px] mx-auto w-full animate-[fadeIn_0.4s_ease-out_forwards]">
+      <div className="flex items-center justify-between mb-6 border-b border-zinc-800 pb-4">
+        <h2 className="font-heading text-2xl font-semibold text-white">Watchlist</h2>
+        <span className="text-sm text-zinc-400 bg-white/5 px-3 py-1 rounded-full font-semibold">{list.length} stock{list.length !== 1 ? 's' : ''}</span>
       </div>
-      <div className="watch-grid">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {list.map(w => (
-          <div key={w.id} className="watch-card">
+          <div key={w.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex justify-between items-center hover:-translate-y-0.5 hover:border-blue-500 hover:shadow-lg transition-all">
             <div>
-              <div className="watch-symbol">{w.symbol}</div>
-              <div className="watch-name">{w.companyName}</div>
-              <div className="watch-date">Added {new Date(w.addedAt).toLocaleDateString()}</div>
+              <div className="font-heading text-lg font-bold text-white tracking-wide">{w.symbol}</div>
+              <div className="text-sm text-zinc-400">{w.companyName}</div>
+              <div className="text-[11px] text-zinc-500 uppercase tracking-wide mt-1">Added {new Date(w.addedAt).toLocaleDateString()}</div>
             </div>
-            <div className="watch-actions">
-              <button className="icon-action-btn" title="Analyze" onClick={() => onAnalyze(w.symbol)}>
+            <div className="flex items-center gap-2">
+              <button className="inline-flex items-center justify-center p-2 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded-lg hover:bg-zinc-800 hover:text-white hover:border-zinc-400 transition-all" title="Analyze" onClick={() => onAnalyze(w.symbol)}>
                 <SearchIco />
               </button>
-              <button className="icon-action-btn danger" title="Remove" onClick={() => remove(w.symbol)}>
+              <button className="inline-flex items-center justify-center p-2 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded-lg hover:bg-red-500/10 hover:text-red-500 hover:border-red-500 transition-all" title="Remove" onClick={() => remove(w.symbol)}>
                 <TrashIco />
               </button>
             </div>
@@ -669,11 +640,11 @@ function WatchlistView({ onAnalyze }) {
 /** Shown when the analysis API returns an error. */
 function ErrorBox({ msg, onBack }) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 60, gap: 'var(--space-7)' }}>
-      <div className="error-box" style={{ maxWidth: 560 }}>
+    <div className="flex-1 flex flex-col items-center pt-16 gap-6">
+      <div className="bg-red-500/10 border border-red-500 rounded-2xl p-5 text-red-400 text-base" style={{ maxWidth: 560 }}>
         ⚠ {typeof msg === 'string' ? msg : JSON.stringify(msg)}
       </div>
-      <button className="back-btn" onClick={onBack}><BackIco /> Go back</button>
+      <button className="inline-flex items-center justify-center gap-1.5 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded-xl py-2 px-5 text-sm font-medium cursor-pointer hover:bg-zinc-800 hover:text-white hover:border-zinc-500 transition-all" onClick={onBack}><BackIco /> Go back</button>
     </div>
   );
 }
@@ -719,13 +690,13 @@ function AppInner() {
   };
 
   return (
-    <div className="app-shell">
+    <div className="flex h-screen w-screen relative overflow-hidden bg-zinc-950">
       <Sidebar
         onAuthClick={() => setShowAuth(true)}
         onLogout={logout}
       />
 
-      <div className="main-content">
+      <div className="flex-1 flex flex-col relative overflow-hidden z-[1]">
         <Topbar onAuthClick={() => setShowAuth(true)} />
 
         <Routes>

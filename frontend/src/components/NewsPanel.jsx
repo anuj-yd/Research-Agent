@@ -1,15 +1,17 @@
 /**
  * @file NewsPanel.jsx
- * @description Fetches and displays the latest company news from the backend
- * (sourced from Finnhub). Each article links out to the original source.
+ * @description Fetches and renders the latest company news headlines from the
+ * backend (/api/news/:symbol), which sources them from Finnhub.
+ * Displays up to 5 articles in a responsive card grid, with a relative
+ * timestamp and a direct link to the original source.
  *
- * @prop {string} symbol - Stock ticker whose news should be fetched (e.g. "AAPL")
+ * @prop {string} symbol - The stock ticker to fetch news for (e.g. "AAPL")
  */
 
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 
-/** Converts an ISO timestamp to a human-readable relative time (e.g. "3h ago"). */
+/** Converts an ISO timestamp to a short human-readable age string (e.g. "3h ago"). */
 function timeSince(iso) {
   const diffMs = Date.now() - new Date(iso).getTime();
   const hours  = Math.floor(diffMs / 3_600_000);
@@ -19,9 +21,22 @@ function timeSince(iso) {
   return 'just now';
 }
 
+/** Shared panel shell used for loading and empty states. */
+function PanelShell({ children }) {
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md">
+      <div className="font-heading text-xl font-semibold text-white mb-4 flex items-center gap-2">
+        📰 Latest News
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export default function NewsPanel({ symbol }) {
   const [news, setNews]       = useState([]);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     if (!symbol) return;
     setLoading(true);
@@ -33,51 +48,55 @@ export default function NewsPanel({ symbol }) {
 
   if (loading) {
     return (
-      <div className="panel">
-        <div className="panel-title">📰 Latest News</div>
-        <div style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', padding: 'var(--space-6) 0' }}>
-          Fetching news<span className="loading-dots" />
-        </div>
-      </div>
+      <PanelShell>
+        <p className="text-sm text-zinc-400 py-4">Fetching latest news…</p>
+      </PanelShell>
     );
   }
 
   if (!news.length) {
     return (
-      <div className="panel">
-        <div className="panel-title">📰 Latest News</div>
-        <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
-          No recent news found for this symbol.
-        </p>
-      </div>
+      <PanelShell>
+        <p className="text-sm text-zinc-400">No recent news found for this symbol.</p>
+      </PanelShell>
     );
   }
 
   return (
-    <div className="panel">
-      <div className="panel-title">📰 Latest News</div>
-      <div className="news-list">
+    <PanelShell>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
         {news.map((item, i) => (
           <a
             key={i}
             href={item.url || '#'}
             target={item.url ? '_blank' : undefined}
             rel={item.url ? 'noopener noreferrer' : undefined}
-            className={`news-item ${item.isAIGenerated ? 'ai-generated' : ''}`}
+            className="flex flex-col p-5 rounded-2xl border border-zinc-800 bg-zinc-950 no-underline transition-all hover:border-blue-500 hover:-translate-y-1 hover:shadow-lg"
             style={{ cursor: item.url ? 'pointer' : 'default' }}
           >
-            <div className="news-meta">
-              <span className="news-source">
+            {/* Source and timestamp row */}
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wide bg-blue-500/10 px-2 py-0.5 rounded-full">
                 {item.source}
-                {item.isAIGenerated && <span className="ai-badge" style={{ marginLeft: 'var(--space-4)', fontSize: 'var(--font-size-xs)', background: 'var(--color-surface-strong)', color: 'var(--color-surface-base)', padding: 'var(--space-2) var(--space-4)', borderRadius: 'var(--radius-xs)' }}>✨ AI Generated</span>}
+                {item.isAIGenerated && (
+                  <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-0.5 rounded-sm">
+                    ✨ AI Generated
+                  </span>
+                )}
               </span>
-              <span className="news-time">{timeSince(item.datetime)}</span>
+              <span className="text-xs text-zinc-500">{timeSince(item.datetime)}</span>
             </div>
-            <p className="news-headline">{item.headline}</p>
-            {item.summary && <p className="news-summary">{item.summary}</p>}
+
+            {/* Headline */}
+            <p className="text-base text-white font-semibold mb-2 leading-snug">{item.headline}</p>
+
+            {/* Optional summary excerpt */}
+            {item.summary && (
+              <p className="text-sm text-zinc-400 leading-relaxed flex-1">{item.summary}</p>
+            )}
           </a>
         ))}
       </div>
-    </div>
+    </PanelShell>
   );
 }

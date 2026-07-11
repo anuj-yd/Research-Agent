@@ -663,7 +663,15 @@ ${formatInstructions}`;
 
   } catch (err) {
     console.error('Analysis error:', err.message);
-    res.status(500).json({ error: err.message });
+    
+    let uiError = 'An unexpected error occurred during analysis.';
+    if (err.message.includes('429 Too Many Requests') || err.message.includes('quota') || err.message.includes('Quota')) {
+      uiError = 'Gemini API quota exceeded. Please try again later.';
+    } else if (err.message.includes('fetch')) {
+      uiError = 'Failed to fetch external financial data.';
+    }
+    
+    res.status(500).json({ error: uiError });
   }
 });
 

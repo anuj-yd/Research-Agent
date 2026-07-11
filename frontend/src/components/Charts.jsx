@@ -13,18 +13,18 @@ import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar,
 } from 'recharts';
 
-// Design tokens — keep consistent with index.css accent colours
-const COLOR_PRIMARY = 'var(--color-surface-strong)';
-const COLOR_MUTED = 'var(--color-text-inverse)';
+// Design tokens
+const COLOR_PRIMARY = '#3b82f6';
+const COLOR_MUTED = '#71717a';
 
-/** Shared tooltip style to match the light UI theme. */
+/** Shared tooltip style */
 const tooltipStyle = {
-  backgroundColor: 'var(--color-surface-muted)',
-  border:          '1px solid var(--color-border-default)',
-  borderRadius:    'var(--radius-sm)',
-  color:           'var(--color-text-primary)',
-  fontSize:        'var(--font-size-xs)',
-  boxShadow:       'var(--shadow-1)'
+  backgroundColor: '#18181b',
+  border:          '1px solid #27272a',
+  borderRadius:    '0.5rem',
+  color:           '#ffffff',
+  fontSize:        '12px',
+  boxShadow:       '0 4px 6px -1px rgba(0, 0, 0, 0.5)'
 };
 
 /**
@@ -46,11 +46,11 @@ export function ScoreRadar({ scores }) {
   ];
 
   return (
-    <div className="chart-wrapper">
-      <h4 className="chart-title">Investment Scores</h4>
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md">
+      <h4 className="font-heading text-base font-semibold text-white mb-4">Investment Scores</h4>
       <ResponsiveContainer width="100%" height={220}>
         <RadarChart data={data} margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
-          <PolarGrid stroke="var(--color-border-default)" />
+          <PolarGrid stroke="#27272a" />
           <PolarAngleAxis dataKey="subject" tick={{ fill: COLOR_MUTED, fontSize: 11 }} />
           <Radar
             dataKey="value"
@@ -91,11 +91,11 @@ export function MetricsBar({ financialAnalysis }) {
   if (!data.length) return null;
 
   return (
-    <div className="chart-wrapper">
-      <h4 className="chart-title">Key Metrics</h4>
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-md">
+      <h4 className="font-heading text-base font-semibold text-white mb-4">Key Metrics</h4>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-default)" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
           <XAxis dataKey="name" tick={{ fill: COLOR_MUTED, fontSize: 11 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill: COLOR_MUTED, fontSize: 10 }} axisLine={false} tickLine={false} />
           <Tooltip
