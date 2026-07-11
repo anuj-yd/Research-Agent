@@ -10,6 +10,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import api from '../api';
 
 export default function AuthModal({ onClose }) {
   const [tab, setTab]         = useState('login'); // 'login' | 'register'
@@ -27,23 +28,18 @@ export default function AuthModal({ onClose }) {
     setError('');
     setLoading(true);
     try {
-      const endpoint = tab === 'login' ? '/api/auth/login' : '/api/auth/register';
-      const body = tab === 'login'
+      const isLogin = tab === 'login';
+      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+      const payload = isLogin
         ? { email: form.email, password: form.password }
         : { name: form.name, email: form.email, password: form.password };
 
-      const r = await fetch(`http://localhost:5000${endpoint}`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Something went wrong');
-
+      const r = await api.post(endpoint, payload);
+      const d = r.data;
       login(d.token, d.user);
       onClose();
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message);
     } finally {
       setLoading(false);
     }

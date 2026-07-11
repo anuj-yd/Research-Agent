@@ -10,8 +10,9 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Routes, Route, useNavigate, useParams, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import api from './api';
 import AuthModal from './components/AuthModal';
 import { ScoreRadar, MetricsBar, CompareBar } from './components/Charts';
 import NewsPanel from './components/NewsPanel';
@@ -51,26 +52,35 @@ const SearchIco  = () => <Icon d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" s
 // The settings icon at the bottom opens auth (sign-in) or signs out.
 // ---------------------------------------------------------------------------
 
-function Sidebar({ view, setView, onAuthClick, onLogout }) {
+function Sidebar({ onAuthClick, onLogout }) {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
-    { id: 'home',    Icon: HomeIco,    label: 'Home' },
-    { id: 'reports', Icon: ReportsIco, label: 'Saved Reports' },
-    { id: 'watch',   Icon: WatchIco,   label: 'Watchlist' },
-    { id: 'compare', Icon: CompareIco, label: 'Compare' },
+    { id: 'home',    path: '/',          Icon: HomeIco,    label: 'Home' },
+    { id: 'reports', path: '/reports',   Icon: ReportsIco, label: 'Saved Reports' },
+    { id: 'watch',   path: '/watchlist', Icon: WatchIco,   label: 'Watchlist' },
+    { id: 'compare', path: '/compare',   Icon: CompareIco, label: 'Compare' },
   ];
+
+  const getActive = () => {
+    if (location.pathname.startsWith('/analyze')) return 'home';
+    const activeItem = navItems.find(item => item.path === location.pathname);
+    return activeItem ? activeItem.id : 'home';
+  };
+  const activeId = getActive();
 
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">AI</div>
       <nav className="sidebar-nav">
-        {navItems.map(({ id, Icon: I, label }) => (
+        {navItems.map(({ id, path, Icon: I, label }) => (
           <button
             key={id}
             title={label}
-            className={`nav-btn ${view === id ? 'active' : ''}`}
-            onClick={() => setView(id)}
+            className={`nav-btn ${activeId === id ? 'active' : ''}`}
+            onClick={() => navigate(path)}
           >
             <I />
           </button>
@@ -246,7 +256,7 @@ function LoadingView({ query }) {
 // ---------------------------------------------------------------------------
 
 function ResultsView({ data, symbol, onBack, onNewQuery }) {
-  const { user, authFetch } = useAuth();
+  const { user } = useAuth();
   const [q, setQ]           = useState('');
   const [saved, setSaved]   = useState(false);
   const [saving, setSaving] = useState(false);
@@ -259,18 +269,15 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
     if (!user) { alert('Sign in to save reports'); return; }
     setSaving(true);
     try {
-      await authFetch('http://localhost:5000/api/reports/save', {
-        method: 'POST',
-        body: JSON.stringify({
-          ticker:         symbol,
-          companyName:    data.companyOverview?.name || symbol,
-          recommendation: data.recommendation,
-          score:          data.investmentScore?.overallScore || 0,
-          reasoning:      data.reasoning,
-          financialData:  data.financialAnalysis,
-          swot:           data.swotAnalysis,
-          fullReport:     data,
-        }),
+      await api.post('/api/reports/save', {
+        ticker:         symbol,
+        companyName:    data.companyOverview?.name || symbol,
+        recommendation: data.recommendation,
+        score:          data.investmentScore?.overallScore || 0,
+        reasoning:      data.reasoning,
+        financialData:  data.financialAnalysis,
+        swot:           data.swotAnalysis,
+        fullReport:     data,
       });
       setSaved(true);
     } finally {
@@ -281,11 +288,15 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
   /** Adds the current stock to the user's watchlist. */
   const addWatch = async () => {
     if (!user) { alert('Sign in to use watchlist'); return; }
-    await authFetch('http://localhost:5000/api/watchlist', {
-      method: 'POST',
-      body: JSON.stringify({ symbol, companyName: data.companyOverview?.name || symbol }),
-    });
-    setWatched(true);
+    try {
+      await api.post('/api/watchlist', {
+        symbol:      symbol,
+        companyName: data.companyOverview?.name || symbol,
+      });
+      setWatched(true);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const scores = [
@@ -349,6 +360,11 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
                   {data.dataSource.includes('Real') ? '📡 Live Data' : '🧠 AI Knowledge Base'}
                 </span>
               )}
+              {data.cached && (
+                <span className="badge badge-purple" title="Report retrieved from cache (generated within last 24h)">
+                  ⚡ Cached Report
+                </span>
+              )}
             </div>
           </div>
           <div className="recommendation-box">
@@ -388,6 +404,36 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
               )}
             </div>
           </div>
+
+          {/* News Sentiment Panel — derived from Finnhub + Gemini current affairs */}
+          {data.newsSentiment && (
+            <div className="panel">
+              <div className="panel-title">📡 News Sentiment</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <span
+                  className={`rec-value ${
+                    data.newsSentiment.sentiment === 'Bullish' ? 'rec-buy'
+                    : data.newsSentiment.sentiment === 'Bearish' ? 'rec-sell'
+                    : 'rec-hold'
+                  }`}
+                  style={{ fontSize: 13, padding: '4px 16px' }}
+                >
+                  {data.newsSentiment.sentiment === 'Bullish' ? '📈 ' : data.newsSentiment.sentiment === 'Bearish' ? '📉 ' : '➡️ '}
+                  {data.newsSentiment.sentiment}
+                </span>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, flex: 1 }}>
+                  {data.newsSentiment.newsImpact}
+                </p>
+              </div>
+              {data.newsSentiment.keyHeadlines?.length > 0 && (
+                <ul className="swot-list" style={{ marginTop: 8 }}>
+                  {data.newsSentiment.keyHeadlines.map((h, i) => (
+                    <li key={i}><span className="swot-dot" style={{ background: 'var(--accent-blue)' }} />{h}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* Key financial metrics */}
           <div className="panel">
@@ -450,37 +496,41 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
 
 function SavedReportsView({ onAnalyze }) {
   const { authFetch } = useAuth();
-  const { user }      = useAuth();
+  const { user } = useAuth();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
-    authFetch('http://localhost:5000/api/reports')
-      .then(r => r.json())
-      .then(d => setReports(Array.isArray(d) ? d : []))
-      .catch(() => setReports([]))
+    if (!user) return;
+    api.get('/api/reports')
+      .then(r => r.data)
+      .then(data => setReports(data))
+      .catch(console.error)
       .finally(() => setLoading(false));
   }, [user]);
 
-  const remove = async (id) => {
-    await authFetch(`http://localhost:5000/api/reports/${id}`, { method: 'DELETE' });
+  const handleDelete = async (id) => {
+    await api.delete(`/api/reports/${id}`);
     setReports(prev => prev.filter(r => r.id !== id));
   };
 
   /**
-   * Downloads a report as a PDF by fetching it via authFetch (to attach the
+   * Downloads a report as a PDF by fetching it via api (to attach the
    * Bearer token) and triggering a browser download via a temporary object URL.
    */
-  const downloadPDF = async (id, ticker) => {
-    const r    = await authFetch(`http://localhost:5000/api/reports/${id}/pdf`);
-    const blob = await r.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `${ticker}-report.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handlePdf = async (id, ticker) => {
+    try {
+      const r = await api.get(`/api/reports/${id}/pdf`, { responseType: 'blob' });
+      const blob = r.data;
+      const url  = window.URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${ticker}_Research_Report.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   if (!user) return (
@@ -534,10 +584,10 @@ function SavedReportsView({ onAnalyze }) {
                 <button className="icon-action-btn" title="Re-analyze" onClick={() => onAnalyze(r.ticker)}>
                   <SearchIco />
                 </button>
-                <button className="icon-action-btn" title="Download PDF" onClick={() => downloadPDF(r.id, r.ticker)}>
+                <button className="icon-action-btn" title="Download PDF" onClick={() => handlePdf(r.id, r.ticker)}>
                   <PDFIco />
                 </button>
-                <button className="icon-action-btn danger" title="Delete" onClick={() => remove(r.id)}>
+                <button className="icon-action-btn danger" title="Delete" onClick={() => handleDelete(r.id)}>
                   <TrashIco />
                 </button>
               </div>
@@ -555,21 +605,21 @@ function SavedReportsView({ onAnalyze }) {
 // ---------------------------------------------------------------------------
 
 function WatchlistView({ onAnalyze }) {
-  const { user, authFetch } = useAuth();
+  const { user } = useAuth();
   const [list, setList]     = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
-    authFetch('http://localhost:5000/api/watchlist')
-      .then(r => r.json())
-      .then(d => setList(Array.isArray(d) ? d : []))
-      .catch(() => setList([]))
+    if (!user) return;
+    api.get('/api/watchlist')
+      .then(r => r.data)
+      .then(data => setList(data))
+      .catch(console.error)
       .finally(() => setLoading(false));
   }, [user]);
 
   const remove = async (symbol) => {
-    await authFetch(`http://localhost:5000/api/watchlist/${symbol}`, { method: 'DELETE' });
+    await api.delete(`/api/watchlist/${symbol}`);
     setList(prev => prev.filter(w => w.symbol !== symbol));
   };
 
@@ -642,16 +692,10 @@ function CompareView() {
     if (!s1.trim() || !s2.trim()) return;
     setLoading(true); setError(''); setResult(null);
     try {
-      const r = await fetch('http://localhost:5000/api/compare', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ symbol1: s1.trim(), symbol2: s2.trim() }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
-      setResult(d);
+      const r = await api.post('/api/compare', { symbol1: s1, symbol2: s2 });
+      setResult(r.data);
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message);
     } finally {
       setLoading(false);
     }
@@ -774,65 +818,44 @@ function ErrorBox({ msg, onBack }) {
 // URL search params keep the last analyzed symbol shareable/bookmarkable.
 // ---------------------------------------------------------------------------
 
-function AppInner() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [view, setView]     = useState('home');
-  const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState('');
-  const [data, setData]     = useState(null);
-  const [symbol, setSymbol] = useState(searchParams.get('symbol') || '');
-  const [showAuth, setShowAuth] = useState(false);
-  const { logout }          = useAuth();
+function AnalyzeRoute() {
+  const { symbol } = useParams();
+  const navigate = useNavigate();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  /**
-   * Sends a query to the backend analysis endpoint and updates state.
-   * Switches back to the home view to display loading/results.
-   */
-  const analyze = async (q) => {
-    const target = q.trim();
-    if (!target) return;
-    setSymbol(target);
-    setSearchParams({ symbol: target });
-    setView('home');
-    setLoading(true); setError(''); setData(null);
-    try {
-      const r = await fetch('http://localhost:5000/api/analyze', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ query: target }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Analysis failed');
-      setData(d);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Auto-analyze if a symbol is present in the URL on first load
   useEffect(() => {
-    const s = searchParams.get('symbol');
-    if (s) analyze(s);
-  }, []);
+    if (!symbol) return;
+    setLoading(true); setError(''); setData(null);
+    api.post('/api/analyze', { query: symbol })
+      .then(r => setData(r.data))
+      .catch(err => setError(err.response?.data?.error || err.message))
+      .finally(() => setLoading(false));
+  }, [symbol]);
 
-  const handleBack = () => {
-    setData(null); setError(''); setSymbol(''); setSearchParams({});
-  };
+  const handleBack = () => navigate('/');
+  const handleNewQuery = (q) => navigate(`/analyze/${q}`);
 
-  const handleViewChange = (v) => {
-    setView(v);
-    // Clear results when navigating away from the home view
-    if (v !== 'home') { setData(null); setError(''); }
+  if (loading) return <LoadingView query={symbol} />;
+  if (error) return <ErrorBox msg={error} onBack={handleBack} />;
+  if (data) return <ResultsView data={data} symbol={symbol} onBack={handleBack} onNewQuery={handleNewQuery} />;
+  return null;
+}
+
+function AppInner() {
+  const [showAuth, setShowAuth] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleAnalyze = (q) => {
+    if (q.trim()) navigate(`/analyze/${q.trim()}`);
   };
 
   return (
     <div className="app-shell">
       <div className="grid-bg" />
       <Sidebar
-        view={view}
-        setView={handleViewChange}
         onAuthClick={() => setShowAuth(true)}
         onLogout={logout}
       />
@@ -840,22 +863,14 @@ function AppInner() {
       <div className="main-content">
         <Topbar onAuthClick={() => setShowAuth(true)} />
 
-        {/* Conditional view rendering based on state */}
-        {view === 'home' && loading   && <LoadingView query={symbol} />}
-        {view === 'home' && !loading  && error   && <ErrorBox msg={error} onBack={handleBack} />}
-        {view === 'home' && !loading  && !error  && !data && <HomeView onAnalyze={analyze} loading={loading} />}
-        {view === 'home' && !loading  && !error  && data  && (
-          <ResultsView
-            data={data}
-            symbol={symbol}
-            onBack={handleBack}
-            onNewQuery={q => { handleBack(); setTimeout(() => analyze(q), 50); }}
-          />
-        )}
-
-        {view === 'reports' && <SavedReportsView onAnalyze={q => { setView('home'); analyze(q); }} />}
-        {view === 'watch'   && <WatchlistView    onAnalyze={q => { setView('home'); analyze(q); }} />}
-        {view === 'compare' && <CompareView />}
+        <Routes>
+          <Route path="/" element={<HomeView onAnalyze={handleAnalyze} />} />
+          <Route path="/analyze/:symbol" element={<AnalyzeRoute />} />
+          <Route path="/reports" element={<SavedReportsView onAnalyze={handleAnalyze} />} />
+          <Route path="/watchlist" element={<WatchlistView onAnalyze={handleAnalyze} />} />
+          <Route path="/compare" element={<CompareView />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
       </div>
 
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}

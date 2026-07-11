@@ -30,6 +30,7 @@ const { ChatGoogleGenerativeAI }    = require('@langchain/google-genai');
 const { StructuredOutputParser }    = require('@langchain/core/output_parsers');
 const { DynamicStructuredTool }     = require('langchain');
 const { HumanMessage, SystemMessage, ToolMessage } = require('langchain');
+const { tavily }                    = require('@tavily/core');
 
 // ---------------------------------------------------------------------------
 // Database Initialization
@@ -63,6 +64,7 @@ app.use(express.json());
 
 const AV_KEY     = process.env.ALPHA_VANTAGE_API_KEY;
 const FH_KEY     = process.env.FINNHUB_API_KEY;
+const TAVILY_KEY = process.env.TAVILY_API_KEY;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
 
 // ---------------------------------------------------------------------------
@@ -214,33 +216,122 @@ const financialTool = new DynamicStructuredTool({
 
 /**
  * Tool: get_company_news
- * Fetches the last 7 days of news headlines from Finnhub for a given ticker.
+ * Fetches the last 30 days of news headlines from Finnhub for a given ticker.
+ * Returns up to 10 articles with headline, source, summary, URL, and date.
+ * Falls back to an empty array if Finnhub is unavailable or the key is missing.
  */
 const newsTool = new DynamicStructuredTool({
   name: 'get_company_news',
-  description: 'Fetches recent news headlines and summaries for a company from Finnhub.',
+  description: 'Fetches recent news headlines, summaries, and URLs for a company from Finnhub (last 30 days).',
   schema: z.object({ symbol: z.string() }),
   func: async ({ symbol }) => {
-    if (!FH_KEY) return JSON.stringify([]);
+    if (!FH_KEY) {
+      console.log('Finnhub key not configured — skipping news fetch');
+      return JSON.stringify({ articles: [], source: 'finnhub_unavailable' });
+    }
     try {
+      const sym  = symbol.toUpperCase();
       const to   = new Date().toISOString().split('T')[0];
-      const from = new Date(Date.now() - 7 * 86_400_000).toISOString().split('T')[0];
+      const from = new Date(Date.now() - 30 * 86_400_000).toISOString().split('T')[0];
       const res  = await fetch(
-        `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${from}&to=${to}&token=${FH_KEY}`
+        `https://finnhub.io/api/v1/company-news?symbol=${sym}&from=${from}&to=${to}&token=${FH_KEY}`
       );
-      const news = await res.json();
-      return JSON.stringify(
-        (Array.isArray(news) ? news : []).slice(0, 5).map(n => ({
+      const raw = await res.json();
+      console.log(`Finnhub returned ${Array.isArray(raw) ? raw.length : 0} articles for ${sym}`);
+
+      if (!Array.isArray(raw) || raw.length === 0) {
+        return JSON.stringify({ articles: [], source: 'finnhub_empty', symbol: sym });
+      }
+
+      // Deduplicate by headline prefix, keep most recent first
+      const seen    = new Set();
+      const articles = raw
+        .sort((a, b) => b.datetime - a.datetime)
+        .filter(n => {
+          const key = n.headline?.substring(0, 60);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .slice(0, 10)
+        .map(n => ({
           headline: n.headline,
           source:   n.source,
-          summary:  (n.summary || '').substring(0, 200),
-          datetime: new Date(n.datetime * 1000).toISOString(),
-        }))
-      );
-    } catch {
-      return JSON.stringify([]);
+          summary:  (n.summary || '').substring(0, 300),
+          url:      n.url,
+          datetime: new Date(n.datetime * 1000).toISOString().split('T')[0],
+        }));
+
+      return JSON.stringify({ articles, source: 'finnhub', symbol: sym });
+    } catch (err) {
+      console.error('Finnhub fetch error:', err.message);
+      return JSON.stringify({ articles: [], source: 'finnhub_error', error: err.message });
     }
   },
+});
+
+/**
+ * Tool: get_current_affairs
+ * Uses Gemini's built-in knowledge to surface recent events, controversies,
+ * product launches, regulatory changes, and market developments for a company.
+ * This complements Finnhub — especially useful when Finnhub returns no results
+ * or for broader sector/macro context.
+ */
+const currentAffairsTool = new DynamicStructuredTool({
+  name: 'get_current_affairs',
+  description: 'Uses AI knowledge to describe recent events, news, controversies, product launches, regulatory actions, and market developments for a company. Use this alongside or instead of get_company_news.',
+  schema: z.object({
+    companyName: z.string().describe('Full company name'),
+    symbol:      z.string().describe('Stock ticker symbol'),
+  }),
+  func: async ({ companyName, symbol }) => {
+    try {
+      const llm    = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-3.5-flash', temperature: 0.3 });
+      const prompt = `You are a financial news analyst. List the most important and recent developments for ${companyName} (${symbol.toUpperCase()}) that would affect an investment decision.
+
+Cover:
+1. Recent earnings results or guidance changes
+2. Product launches, partnerships, or acquisitions
+3. Regulatory actions, lawsuits, or government scrutiny
+4. Leadership changes (CEO, CFO, board)
+5. Macroeconomic factors affecting this company/sector
+6. Analyst rating changes or price target updates
+7. Competitive threats or market share shifts
+8. Any controversies or reputational risks
+
+Be specific with dates and numbers where known. Focus on the last 3–6 months.
+Format as a numbered list. Be concise but informative.`;
+
+      const result = await llm.invoke(prompt);
+      return JSON.stringify({ events: result.content, source: 'gemini_knowledge' });
+    } catch (err) {
+      return JSON.stringify({ events: 'Could not retrieve current affairs.', error: err.message });
+    }
+  },
+});
+
+/**
+ * Tool: tavily_search
+ * Fetches recent news, articles, and current events for a company using Tavily API.
+ */
+const tavilySearchTool = new DynamicStructuredTool({
+  name: 'tavily_search',
+  description: 'Searches the web for recent news, articles, and current events about a company using Tavily API.',
+  schema: z.object({ query: z.string() }),
+  func: async ({ query }) => {
+    if (!TAVILY_KEY) return JSON.stringify({ error: 'TAVILY_API_KEY not configured', results: [] });
+    try {
+      const tvly = tavily({ apiKey: TAVILY_KEY });
+      const response = await tvly.search(query, {
+        searchDepth: "basic",
+        maxResults: 5,
+        includeImages: false
+      });
+      return JSON.stringify(response.results);
+    } catch (err) {
+      return JSON.stringify({ error: err.message, results: [] });
+    }
+  }
 });
 
 /**
@@ -281,7 +372,7 @@ const calculatorTool = new DynamicStructuredTool({
 // ---------------------------------------------------------------------------
 // Report Output Schema
 // Enforces the exact JSON structure the frontend expects via Zod + LangChain's
-// StructuredOutputParser, which injects format instructions into the prompt.
+// StructuredOutputParser. Includes newsSentiment for news-driven analysis.
 // ---------------------------------------------------------------------------
 const reportParser = StructuredOutputParser.fromZodSchema(
   z.object({
@@ -306,6 +397,17 @@ const reportParser = StructuredOutputParser.fromZodSchema(
       roe:             z.string(),
       operatingMargin: z.string(),
       debtToEquity:    z.string(),
+    }),
+    /**
+     * newsSentiment: derived from real Finnhub articles + Gemini current affairs.
+     * sentiment: overall market mood based on headlines.
+     * keyHeadlines: 2–4 most impactful recent headlines.
+     * newsImpact: how recent news should adjust the investment decision.
+     */
+    newsSentiment: z.object({
+      sentiment:     z.enum(['Bullish', 'Neutral', 'Bearish']),
+      keyHeadlines:  z.array(z.string()),
+      newsImpact:    z.string(),
     }),
     swotAnalysis: z.object({
       strengths:     z.array(z.string()),
@@ -382,29 +484,69 @@ app.get('/api/auth/me', requireAuth, (req, res) => res.json({ user: req.user }))
 // News Route
 // ---------------------------------------------------------------------------
 
-/** Returns up to 8 recent news articles for the given stock symbol via Finnhub. */
+/**
+ * GET /api/news/:symbol
+ * Returns up to 10 recent news articles from Finnhub (last 30 days).
+ * If Finnhub returns nothing, falls back to Gemini-generated current affairs.
+ */
 app.get('/api/news/:symbol', async (req, res) => {
-  if (!FH_KEY) return res.json([]);
-  try {
-    const { symbol } = req.params;
-    const to   = new Date().toISOString().split('T')[0];
-    const from = new Date(Date.now() - 7 * 86_400_000).toISOString().split('T')[0];
-    const r    = await fetch(
-      `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${from}&to=${to}&token=${FH_KEY}`
-    );
-    const raw  = await r.json();
-    const news = (Array.isArray(raw) ? raw : []).slice(0, 8).map(n => ({
-      headline: n.headline,
-      source:   n.source,
-      summary:  (n.summary || '').substring(0, 300),
-      url:      n.url,
-      image:    n.image,
-      datetime: new Date(n.datetime * 1000).toISOString(),
-    }));
-    res.json(news);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  const { symbol } = req.params;
+  const sym        = symbol.toUpperCase();
+
+  // --- Finnhub fetch ---
+  if (FH_KEY) {
+    try {
+      const to   = new Date().toISOString().split('T')[0];
+      const from = new Date(Date.now() - 30 * 86_400_000).toISOString().split('T')[0];
+      const r    = await fetch(
+        `https://finnhub.io/api/v1/company-news?symbol=${sym}&from=${from}&to=${to}&token=${FH_KEY}`
+      );
+      const raw  = await r.json();
+      console.log(`News endpoint: Finnhub returned ${Array.isArray(raw) ? raw.length : 0} articles for ${sym}`);
+
+      if (Array.isArray(raw) && raw.length > 0) {
+        const seen = new Set();
+        const news = raw
+          .sort((a, b) => b.datetime - a.datetime)
+          .filter(n => {
+            const key = n.headline?.substring(0, 60);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .slice(0, 10)
+          .map(n => ({
+            headline: n.headline,
+            source:   n.source,
+            summary:  (n.summary || '').substring(0, 300),
+            url:      n.url,
+            image:    n.image,
+            datetime: new Date(n.datetime * 1000).toISOString(),
+            isFinnhub: true,
+          }));
+        return res.json(news);
+      }
+    } catch (err) {
+      console.error('Finnhub news error:', err.message);
+    }
   }
+
+  // --- Gemini fallback: generate AI-sourced recent events ---
+  try {
+    console.log(`Finnhub empty for ${sym} — using Gemini current affairs fallback`);
+    const llm    = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-3.5-flash', temperature: 0.3 });
+    const prompt = `List the 6 most recent and significant news events or developments for the stock ${sym} that would matter to an investor. Include earnings results, product launches, executive changes, regulatory news, and analyst upgrades/downgrades. Format each as a JSON object with headline (string), source ("AI Research"), summary (string, 1-2 sentences), and datetime (approximate ISO date). Return ONLY a valid JSON array, no markdown.`;
+    const result = await llm.invoke(prompt);
+    const match  = result.content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+    if (match) {
+      const articles = JSON.parse(match[0]).map(a => ({ ...a, isAIGenerated: true }));
+      return res.json(articles);
+    }
+  } catch (err) {
+    console.error('Gemini news fallback error:', err.message);
+  }
+
+  res.json([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -429,70 +571,113 @@ app.post('/api/analyze', optionalAuth, async (req, res) => {
     const { query } = req.body;
     if (!query) return res.status(400).json({ error: 'query is required' });
 
-    const llm   = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-2.5-flash', temperature: 0.2 });
-    const tools = [financialTool, newsTool, calculatorTool];
-    const modelWithTools = llm.bindTools(tools);
-
-    // Phase 1: Agentic data collection loop
     console.log(`Analyzing: ${query}`);
-    const messages = [
-      new SystemMessage(
-        `You are a financial research agent. When asked to analyze a company:
-1. Resolve the company name to its stock ticker (Apple → AAPL, Tesla → TSLA, etc.)
-2. Call get_financial_data to retrieve fundamentals
-3. Call calculate_investment_scores with the key metrics from step 2
-4. Call get_company_news for recent headlines
-5. Summarize all gathered data in detail — every number matters.`
-      ),
-      new HumanMessage(`Perform complete investment research for: ${query}`),
-    ];
 
-    let gatheredData = '';
-    for (let i = 0; i < 8; i++) {
-      const response = await modelWithTools.invoke(messages);
-      messages.push(response);
+    // --- Caching / Deduplication ---
+    if (prisma) {
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const cached = await prisma.investmentReport.findFirst({
+        where: {
+          OR: [
+            { ticker: { equals: query, mode: 'insensitive' } },
+            { companyName: { equals: query, mode: 'insensitive' } }
+          ],
+          createdAt: { gte: yesterday }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
 
-      // If the model responds with no tool calls, it has finished collecting data
-      if (!response.tool_calls || response.tool_calls.length === 0) {
-        gatheredData = response.content || '';
-        break;
-      }
-
-      // Execute each requested tool call and append the results to the message history
-      for (const tc of response.tool_calls) {
-        const matched = tools.find(t => t.name === tc.name);
-        if (!matched) continue;
-        const result = await matched.invoke(tc.args);
-        messages.push(new ToolMessage({ content: String(result), tool_call_id: tc.id }));
+      if (cached && cached.fullReport) {
+        console.log(`Cache hit for '${query}' — returning saved report from ${cached.createdAt}`);
+        return res.json({ ...cached.fullReport, cached: true });
       }
     }
 
-    const rawSummary = gatheredData || messages[messages.length - 1]?.content || '';
-    console.log('Data collection complete');
+    // Phase 1: Sequential Data Collection
+    console.log('Fetching financial data...');
+    const finResult = await financialTool.invoke({ symbol: query });
+    let ticker = query;
+    let finDataObj = {};
+    try { 
+      finDataObj = JSON.parse(finResult); 
+      if (finDataObj.symbol) ticker = finDataObj.symbol;
+    } catch(e) {}
+
+    console.log(`Fetching news for ${ticker}...`);
+    const newsResult = await newsTool.invoke({ symbol: ticker });
+
+    console.log('Calculating scores...');
+    const scoreResult = await calculatorTool.invoke({
+      peRatio: finDataObj.peRatio?.toString(),
+      beta: finDataObj.beta?.toString(),
+      roe: finDataObj.roe ? finDataObj.roe.replace('%','') : undefined,
+      revenueGrowth: finDataObj.revenueGrowth ? finDataObj.revenueGrowth.replace('%','') : undefined,
+      operatingMargin: finDataObj.operatingMargin ? finDataObj.operatingMargin.replace('%','') : undefined
+    });
+
+    console.log(`Fetching current affairs context for ${ticker}...`);
+    const affairsResult = await currentAffairsTool.invoke({ companyName: finDataObj.name || ticker, symbol: ticker });
+
+    console.log(`Searching the web for ${ticker} via Tavily...`);
+    const tavilyResult = await tavilySearchTool.invoke({ query: `${finDataObj.name || ticker} stock news current events` });
+
+    const rawSummary = `
+      FINANCIAL FUNDAMENTALS:
+      ${finResult}
+      
+      SCORES:
+      ${scoreResult}
+      
+      RECENT NEWS (Finnhub):
+      ${newsResult}
+
+      TAVILY WEB SEARCH:
+      ${tavilyResult}
+      
+      CURRENT AFFAIRS / RISKS:
+      ${affairsResult}
+    `;
+
+    console.log('Data collection complete. Generating structured report...');
 
     // Phase 2: Generate structured investment report
+    // We use exactly ONE LLM call here, staying well within the 20 RPM Free Tier limit.
+    const llm = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-3.5-flash', temperature: 0.2 });
+    
     const formatInstructions = reportParser.getFormatInstructions();
-    const reportPrompt = `You are a senior CFA-level investment analyst. Using the research data below, produce a complete investment report.
+    const reportPrompt = `You are a senior CFA-level investment analyst with access to both quantitative and qualitative research. Produce a complete, accurate investment report from the data below.
 
-RESEARCH DATA:
+RESEARCH DATA (financial fundamentals + live news + current affairs):
 ${rawSummary}
 
-FORMATTING RULES:
-- peRatio: append "x" (e.g. "28.5x"), or write "N/A"
-- eps: prepend "$" (e.g. "$6.43"), or write "N/A"
-- revenueGrowth, roe, operatingMargin: include the "%" sign
-- debtToEquity: append "x" or write "N/A"
-- dataSource: "Alpha Vantage (Real-Time)" if live data was retrieved, otherwise "AI Knowledge Base"
-- SWOT: 3–4 specific, data-backed bullet points per quadrant
-- reasoning: 2–3 paragraphs referencing actual numbers
-- Scores must be consistent with the quantitative data
+CRITICAL INSTRUCTIONS:
+1. The recommendation (BUY/HOLD/PASS) MUST account for BOTH financial fundamentals AND recent news/current affairs.
+   - If news is Bullish (product launch, earnings beat, analyst upgrade): lean toward BUY or upgrade score.
+   - If news is Bearish (lawsuit, earnings miss, CEO departure, regulatory fine): lean toward HOLD or PASS and lower the score.
+   - If news is Neutral or mixed: stay with what fundamentals suggest.
+2. newsSentiment.sentiment must be one of: "Bullish", "Neutral", or "Bearish".
+3. newsSentiment.keyHeadlines: list 2–4 real, specific headlines from the news data. Do NOT make up headlines.
+4. newsSentiment.newsImpact: explain in 1–2 sentences how the news changes (or confirms) the recommendation.
+5. reasoning: write 3 paragraphs:
+   - Para 1: Financial fundamentals analysis with specific numbers.
+   - Para 2: News/current affairs analysis — reference specific headlines or events.
+   - Para 3: Final synthesis — how do fundamentals + news combine to reach the recommendation?
+
+FORMATTING:
+- peRatio: append "x" (e.g. "28.5x"), or "N/A"
+- eps: prepend "$" (e.g. "$6.43"), or "N/A"
+- revenueGrowth, roe, operatingMargin: include "%"
+- debtToEquity: append "x" or "N/A"
+- dataSource: "Alpha Vantage + Finnhub (Real-Time)" if both were used, "Alpha Vantage (Real-Time)" if only financials, "AI Knowledge Base" if no live data
+- SWOT: 3–4 specific, evidence-backed bullet points per quadrant. Include news-driven items in Opportunities/Threats.
+- Scores must reflect both quantitative metrics and news sentiment.
 
 ${formatInstructions}`;
 
     const rawReport = await llm.invoke(reportPrompt);
     const report    = await reportParser.parse(rawReport.content);
 
-    console.log(`Report complete — ${report.recommendation} (score: ${report.investmentScore?.overallScore})`);
+    console.log(`Report complete — ${report.recommendation} | Score: ${report.investmentScore?.overallScore} | News: ${report.newsSentiment?.sentiment}`);
     res.json(report);
 
   } catch (err) {
@@ -518,7 +703,7 @@ app.post('/api/compare', async (req, res) => {
 
     const llm = new ChatGoogleGenerativeAI({
       apiKey:      process.env.GEMINI_API_KEY,
-      model:       'gemini-2.5-flash',
+      model:       'gemini-3.5-flash',
       temperature: 0.2,
     });
 

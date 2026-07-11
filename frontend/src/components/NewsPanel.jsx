@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import api from '../api';
 
 /** Converts an ISO timestamp to a human-readable relative time (e.g. "3h ago"). */
 function timeSince(iso) {
@@ -21,14 +22,14 @@ function timeSince(iso) {
 export default function NewsPanel({ symbol }) {
   const [news, setNews]       = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
 
   useEffect(() => {
     if (!symbol) return;
     setLoading(true);
-    fetch(`http://localhost:5000/api/news/${symbol.toUpperCase()}`)
-      .then(r => r.json())
-      .then(d => setNews(Array.isArray(d) ? d : []))
-      .catch(() => setNews([]))
+    api.get(`/api/news/${symbol.toUpperCase()}`)
+      .then(r => setNews(r.data.slice(0, 5)))
+      .catch(err => setError(err.response?.data?.error || err.message))
       .finally(() => setLoading(false));
   }, [symbol]);
 
@@ -61,13 +62,17 @@ export default function NewsPanel({ symbol }) {
         {news.map((item, i) => (
           <a
             key={i}
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="news-item"
+            href={item.url || '#'}
+            target={item.url ? '_blank' : undefined}
+            rel={item.url ? 'noopener noreferrer' : undefined}
+            className={`news-item ${item.isAIGenerated ? 'ai-generated' : ''}`}
+            style={{ cursor: item.url ? 'pointer' : 'default' }}
           >
             <div className="news-meta">
-              <span className="news-source">{item.source}</span>
+              <span className="news-source">
+                {item.source}
+                {item.isAIGenerated && <span className="ai-badge" style={{ marginLeft: 6, fontSize: 10, background: 'rgba(59,130,246,0.2)', color: '#3b82f6', padding: '2px 6px', borderRadius: 4 }}>✨ AI Generated</span>}
+              </span>
               <span className="news-time">{timeSince(item.datetime)}</span>
             </div>
             <p className="news-headline">{item.headline}</p>
