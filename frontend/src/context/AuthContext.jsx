@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
       .then(r => { if (r.data.user) setUser(r.data.user); else logout(); })
       .catch(() => logout())
       .finally(() => setLoading(false));
-  }, []);
+  }, [token]);
 
   const login = (tokenVal, userData) => {
     localStorage.setItem('ra_token', tokenVal);

@@ -15,7 +15,6 @@ import {
 
 // Design tokens — keep consistent with index.css accent colours
 const COLOR_PRIMARY = 'var(--color-surface-strong)';
-const COLOR_SECONDARY = 'var(--color-text-secondary)';
 const COLOR_MUTED = 'var(--color-text-inverse)';
 
 /** Shared tooltip style to match the light UI theme. */

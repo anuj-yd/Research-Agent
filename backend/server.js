@@ -29,7 +29,6 @@ const { PrismaPg }                  = require('@prisma/adapter-pg');
 const { ChatGoogleGenerativeAI }    = require('@langchain/google-genai');
 const { StructuredOutputParser }    = require('@langchain/core/output_parsers');
 const { DynamicStructuredTool }     = require('langchain');
-const { HumanMessage, SystemMessage, ToolMessage } = require('langchain');
 const { tavily }                    = require('@tavily/core');
 const yahooFinance                  = new (require('yahoo-finance2').default)();
 
@@ -65,6 +64,8 @@ app.use(express.json());
 
 const TAVILY_KEY = process.env.TAVILY_API_KEY;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
+const AV_KEY     = process.env.ALPHA_VANTAGE_API_KEY;
+const FH_KEY     = process.env.FINNHUB_API_KEY;
 
 // ---------------------------------------------------------------------------
 // Authentication Middleware
