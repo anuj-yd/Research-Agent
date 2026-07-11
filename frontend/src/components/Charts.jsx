@@ -14,18 +14,18 @@ import {
 } from 'recharts';
 
 // Design tokens — keep consistent with index.css accent colours
-const COLOR_PRIMARY = '#8fbcfa';
-const COLOR_SECONDARY = '#a0aec0';
-const COLOR_MUTED = '#a0aec0';
+const COLOR_PRIMARY = 'var(--color-surface-strong)';
+const COLOR_SECONDARY = 'var(--color-text-secondary)';
+const COLOR_MUTED = 'var(--color-text-inverse)';
 
 /** Shared tooltip style to match the light UI theme. */
 const tooltipStyle = {
-  backgroundColor: '#ffffff',
-  border:          '1px solid #e2e8f0',
-  borderRadius:    14,
-  color:           '#2d2b2b',
-  fontSize:        12,
-  boxShadow:       '0px 2px 8px rgba(0,0,0,0.08)'
+  backgroundColor: 'var(--color-surface-muted)',
+  border:          '1px solid var(--color-border-default)',
+  borderRadius:    'var(--radius-sm)',
+  color:           'var(--color-text-primary)',
+  fontSize:        'var(--font-size-xs)',
+  boxShadow:       'var(--shadow-1)'
 };
 
 /**
@@ -78,8 +78,8 @@ export function MetricsBar({ financialAnalysis }) {
   if (!financialAnalysis) return null;
 
   const parseNum = (val) => {
-    if (!val || val === 'N/A' || val === '--') return null;
-    return parseFloat(val.replace(/[^0-9.\-]/g, ''));
+    if (val === null || val === undefined || val === 'N/A' || val === '--') return null;
+    return parseFloat(String(val).replace(/[^0-9.-]/g, ''));
   };
 
   const data = [

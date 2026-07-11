@@ -22,14 +22,12 @@ function timeSince(iso) {
 export default function NewsPanel({ symbol }) {
   const [news, setNews]       = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
-
   useEffect(() => {
     if (!symbol) return;
     setLoading(true);
     api.get(`/api/news/${symbol.toUpperCase()}`)
       .then(r => setNews(r.data.slice(0, 5)))
-      .catch(err => setError(err.response?.data?.error || err.message))
+      .catch(err => console.error(err.response?.data?.error || err.message))
       .finally(() => setLoading(false));
   }, [symbol]);
 
@@ -37,7 +35,7 @@ export default function NewsPanel({ symbol }) {
     return (
       <div className="panel">
         <div className="panel-title">📰 Latest News</div>
-        <div style={{ color: 'var(--color-text-secondary)', fontSize: 13, padding: '12px 0' }}>
+        <div style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', padding: 'var(--space-6) 0' }}>
           Fetching news<span className="loading-dots" />
         </div>
       </div>
@@ -48,7 +46,7 @@ export default function NewsPanel({ symbol }) {
     return (
       <div className="panel">
         <div className="panel-title">📰 Latest News</div>
-        <p style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>
+        <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
           No recent news found for this symbol.
         </p>
       </div>
@@ -71,7 +69,7 @@ export default function NewsPanel({ symbol }) {
             <div className="news-meta">
               <span className="news-source">
                 {item.source}
-                {item.isAIGenerated && <span className="ai-badge" style={{ marginLeft: 6, fontSize: 10, background: 'rgba(59,130,246,0.2)', color: '#3b82f6', padding: '2px 6px', borderRadius: 4 }}>✨ AI Generated</span>}
+                {item.isAIGenerated && <span className="ai-badge" style={{ marginLeft: 'var(--space-4)', fontSize: 'var(--font-size-xs)', background: 'var(--color-surface-strong)', color: 'var(--color-surface-base)', padding: 'var(--space-2) var(--space-4)', borderRadius: 'var(--radius-xs)' }}>✨ AI Generated</span>}
               </span>
               <span className="news-time">{timeSince(item.datetime)}</span>
             </div>

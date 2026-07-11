@@ -31,6 +31,7 @@ const { StructuredOutputParser }    = require('@langchain/core/output_parsers');
 const { DynamicStructuredTool }     = require('langchain');
 const { HumanMessage, SystemMessage, ToolMessage } = require('langchain');
 const { tavily }                    = require('@tavily/core');
+const yahooFinance                  = new (require('yahoo-finance2').default)();
 
 // ---------------------------------------------------------------------------
 // Database Initialization
@@ -62,8 +63,6 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-const AV_KEY     = process.env.ALPHA_VANTAGE_API_KEY;
-const FH_KEY     = process.env.FINNHUB_API_KEY;
 const TAVILY_KEY = process.env.TAVILY_API_KEY;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
 
@@ -100,37 +99,51 @@ const optionalAuth = (req, _res, next) => {
 };
 
 // ---------------------------------------------------------------------------
-// Alpha Vantage Helpers
-// ---------------------------------------------------------------------------
 
-/**
- * Fetches data from the Alpha Vantage API.
- * @param {string} func   - API function name (e.g. 'OVERVIEW', 'INCOME_STATEMENT')
- * @param {string} symbol - Stock ticker symbol
- * @param {string} extra  - Optional additional query parameters
- * @returns {Promise<object>}
- */
-async function fetchAV(func, symbol, extra = '') {
-  const url = `https://www.alphavantage.co/query?function=${func}&symbol=${symbol}&apikey=${AV_KEY}${extra}`;
-  const res = await fetch(url);
-  return res.json();
-}
+/** Fetch recent news for a symbol using Yahoo Finance (with Gemini fallback) */
+app.get('/api/news/:symbol', async (req, res) => {
+  const { symbol } = req.params;
+  const sym        = symbol.toUpperCase();
 
-/**
- * Normalises a raw Alpha Vantage value.
- * Returns null for empty, undefined, 'None', or '-' values.
- */
-const avVal = (v) =>
-  (v === undefined || v === null || v === 'None' || v === '-' || v === '') ? null : v;
+  // --- Yahoo Finance fetch ---
+  try {
+    const sr = await yahooFinance.search(sym, { newsCount: 10 });
+    const newsItems = sr.news || [];
+    console.log(`News endpoint: Yahoo Finance returned ${newsItems.length} articles for ${sym}`);
 
-/**
- * Converts a decimal ratio (e.g. 0.15) to a percentage string (e.g. "15.00%").
- * Returns null if the value is not a valid number.
- */
-const fmtPct = (v) => {
-  const n = parseFloat(v);
-  return isNaN(n) ? null : (n * 100).toFixed(2) + '%';
-};
+    if (newsItems.length > 0) {
+      const news = newsItems.map(n => ({
+        headline: n.title,
+        source:   n.publisher,
+        summary:  (n.title || '').substring(0, 300), // Yahoo doesn't usually give summary in search, using title
+        url:      n.link,
+        image:    n.thumbnail?.resolutions?.[0]?.url || null,
+        datetime: n.providerPublishTime ? new Date(n.providerPublishTime * 1000).toISOString() : new Date().toISOString(),
+        isYahoo:  true,
+      }));
+      return res.json(news);
+    }
+  } catch (err) {
+    console.error('Yahoo news error:', err.message);
+  }
+
+  // --- Gemini fallback: generate AI-sourced recent events ---
+  try {
+    console.log(`Yahoo Finance empty for ${sym} — using Gemini current affairs fallback`);
+    const llm    = new ChatGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-3.5-flash', temperature: 0.3 });
+    const prompt = `List the 6 most recent and significant news events or developments for the stock ${sym} that would matter to an investor. Include earnings results, product launches, executive changes, regulatory news, and analyst upgrades/downgrades. Format each as a JSON object with headline (string), source ("AI Research"), summary (string, 1-2 sentences), and datetime (approximate ISO date). Return ONLY a valid JSON array, no markdown.`;
+    const result = await llm.invoke(prompt);
+    const match  = result.content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+    if (match) {
+      const articles = JSON.parse(match[0]).map(a => ({ ...a, isAIGenerated: true }));
+      return res.json(articles);
+    }
+  } catch (err) {
+    console.error('Gemini news fallback error:', err.message);
+  }
+
+  res.json([]);
+});
 
 // ---------------------------------------------------------------------------
 // LangChain Tools
@@ -139,74 +152,62 @@ const fmtPct = (v) => {
 
 /**
  * Tool: get_financial_data
- * Fetches comprehensive fundamental data for a stock from Alpha Vantage.
- * Performs a symbol search fallback if the ticker is not found directly.
+ * Fetches comprehensive fundamental data for a stock from Yahoo Finance.
  */
 const financialTool = new DynamicStructuredTool({
   name: 'get_financial_data',
-  description: 'Fetches real-time financial data (P/E, EPS, margins, revenue, balance sheet) for a stock symbol from Alpha Vantage.',
+  description: 'Fetches real-time financial data (P/E, EPS, margins, revenue, balance sheet) for a stock symbol from Yahoo Finance.',
   schema: z.object({
     symbol: z.string().describe('Stock ticker symbol, e.g. AAPL, TSLA, MSFT'),
   }),
   func: async ({ symbol }) => {
     try {
-      let sym      = symbol.toUpperCase();
-      let overview = await fetchAV('OVERVIEW', sym);
-
-      // Fallback: search by keyword if the ticker is not found directly
-      if (!overview.Symbol) {
-        const search  = await fetchAV('SYMBOL_SEARCH', '', `&keywords=${encodeURIComponent(sym)}`);
-        const matches = search.bestMatches || [];
-        const best    = matches.find(m => m['4. region'] === 'United States') || matches[0];
-        if (best) {
-          sym = best['1. symbol'];
-          if (best['4. region'] === 'United States') overview = await fetchAV('OVERVIEW', sym);
+      let sym = symbol.toUpperCase();
+      
+      // Auto-resolve ticker via search to handle company names or incomplete regional tickers
+      try {
+        const searchRes = await yahooFinance.search(sym, { newsCount: 0 });
+        if (searchRes && searchRes.quotes && searchRes.quotes.length > 0) {
+          // Prefer equity matches
+          const bestMatch = searchRes.quotes.find(q => q.quoteType === 'EQUITY') || searchRes.quotes[0];
+          sym = bestMatch.symbol;
+          console.log(`Resolved requested symbol '${symbol}' to Yahoo Finance ticker '${sym}'`);
         }
+      } catch (searchErr) {
+        console.warn(`Search fallback failed for ${sym}, proceeding with original symbol.`);
       }
 
-      if (!overview.Symbol) return JSON.stringify({ error: 'No financial data found', symbol: sym });
-
-      // Revenue growth: compare latest vs prior annual report
-      const income = await fetchAV('INCOME_STATEMENT', sym);
-      const latest = income.annualReports?.[0] || {};
-      const prior  = income.annualReports?.[1]  || {};
-      const rev0   = parseFloat(latest.totalRevenue);
-      const rev1   = parseFloat(prior.totalRevenue);
-      const revenueGrowth = (!isNaN(rev0) && !isNaN(rev1) && rev1 !== 0)
-        ? ((rev0 - rev1) / rev1 * 100).toFixed(1) + '%'
-        : null;
-
-      // Free cash flow: operating cash flow minus capital expenditures
-      const cashFlow = await fetchAV('CASH_FLOW', sym);
-      const cf       = cashFlow.annualReports?.[0] || {};
-      const ocf      = parseFloat(cf.operatingCashflow);
-      const capex    = parseFloat(cf.capitalExpenditures);
-      const fcf      = (!isNaN(ocf) && !isNaN(capex))
-        ? '$' + ((ocf - Math.abs(capex)) / 1e9).toFixed(2) + 'B'
-        : null;
+      const quote = await yahooFinance.quoteSummary(sym, { modules: ['summaryDetail', 'assetProfile', 'financialData', 'defaultKeyStatistics'] });
+      
+      if (!quote || (!quote.summaryDetail && !quote.financialData)) return JSON.stringify({ error: 'No financial data found', symbol: sym });
+      
+      const sd = quote.summaryDetail;
+      const fd = quote.financialData;
+      const ap = quote.assetProfile;
+      const ks = quote.defaultKeyStatistics;
 
       return JSON.stringify({
-        name:            overview.Name,
+        name:            quote.price?.longName || sym,
         symbol:          sym,
-        sector:          avVal(overview.Sector),
-        industry:        avVal(overview.Industry),
-        description:     (avVal(overview.Description) || '').substring(0, 400),
-        peRatio:         avVal(overview.PERatio),
-        eps:             avVal(overview.EPS),
-        roe:             avVal(overview.ReturnOnEquityTTM)  ? fmtPct(overview.ReturnOnEquityTTM)  : null,
-        roa:             avVal(overview.ReturnOnAssetsTTM)  ? fmtPct(overview.ReturnOnAssetsTTM)  : null,
-        operatingMargin: avVal(overview.OperatingMarginTTM) ? fmtPct(overview.OperatingMarginTTM) : null,
-        profitMargin:    avVal(overview.ProfitMargin)       ? fmtPct(overview.ProfitMargin)       : null,
-        revenueGrowth,
-        debtToEquity:    avVal(overview.DebtToEquityRatio),
-        beta:            avVal(overview.Beta),
-        marketCap:       avVal(overview.MarketCapitalization),
-        week52High:      avVal(overview['52WeekHigh']),
-        week52Low:       avVal(overview['52WeekLow']),
-        analystTarget:   avVal(overview.AnalystTargetPrice),
-        dividendYield:   avVal(overview.DividendYield) ? fmtPct(overview.DividendYield) : null,
-        freeCashFlow:    fcf,
-        dataSource:      'Alpha Vantage (Real-Time)',
+        sector:          ap?.sector || null,
+        industry:        ap?.industry || null,
+        description:     (ap?.longBusinessSummary || '').substring(0, 400),
+        peRatio:         sd?.forwardPE || sd?.trailingPE || null,
+        eps:             ks?.trailingEps || null,
+        roe:             fd?.returnOnEquity ? (fd.returnOnEquity * 100).toFixed(2) + '%' : null,
+        roa:             fd?.returnOnAssets ? (fd.returnOnAssets * 100).toFixed(2) + '%' : null,
+        operatingMargin: fd?.operatingMargins ? (fd.operatingMargins * 100).toFixed(2) + '%' : null,
+        profitMargin:    fd?.profitMargins ? (fd.profitMargins * 100).toFixed(2) + '%' : null,
+        revenueGrowth:   fd?.revenueGrowth ? (fd.revenueGrowth * 100).toFixed(2) + '%' : null,
+        debtToEquity:    fd?.debtToEquity || null,
+        beta:            ks?.beta || null,
+        marketCap:       sd?.marketCap || null,
+        week52High:      sd?.fiftyTwoWeekHigh || null,
+        week52Low:       sd?.fiftyTwoWeekLow || null,
+        analystTarget:   fd?.targetMeanPrice || null,
+        dividendYield:   sd?.dividendYield ? (sd.dividendYield * 100).toFixed(2) + '%' : null,
+        freeCashFlow:    fd?.freeCashflow ? '$' + (fd.freeCashflow / 1e9).toFixed(2) + 'B' : null,
+        dataSource:      'Yahoo Finance (Free)',
       });
     } catch (err) {
       return JSON.stringify({ error: err.message });
@@ -216,56 +217,35 @@ const financialTool = new DynamicStructuredTool({
 
 /**
  * Tool: get_company_news
- * Fetches the last 30 days of news headlines from Finnhub for a given ticker.
- * Returns up to 10 articles with headline, source, summary, URL, and date.
- * Falls back to an empty array if Finnhub is unavailable or the key is missing.
+ * Fetches recent news headlines, summaries, and URLs for a company from Yahoo Finance.
  */
 const newsTool = new DynamicStructuredTool({
   name: 'get_company_news',
-  description: 'Fetches recent news headlines, summaries, and URLs for a company from Finnhub (last 30 days).',
+  description: 'Fetches recent news headlines, summaries, and URLs for a company from Yahoo Finance.',
   schema: z.object({ symbol: z.string() }),
   func: async ({ symbol }) => {
-    if (!FH_KEY) {
-      console.log('Finnhub key not configured — skipping news fetch');
-      return JSON.stringify({ articles: [], source: 'finnhub_unavailable' });
-    }
     try {
-      const sym  = symbol.toUpperCase();
-      const to   = new Date().toISOString().split('T')[0];
-      const from = new Date(Date.now() - 30 * 86_400_000).toISOString().split('T')[0];
-      const res  = await fetch(
-        `https://finnhub.io/api/v1/company-news?symbol=${sym}&from=${from}&to=${to}&token=${FH_KEY}`
-      );
-      const raw = await res.json();
-      console.log(`Finnhub returned ${Array.isArray(raw) ? raw.length : 0} articles for ${sym}`);
+      const sym = symbol.toUpperCase();
+      const res = await yahooFinance.search(sym, { newsCount: 10 });
+      const newsItems = res.news || [];
+      console.log(`Yahoo Finance returned ${newsItems.length} articles for ${sym}`);
 
-      if (!Array.isArray(raw) || raw.length === 0) {
-        return JSON.stringify({ articles: [], source: 'finnhub_empty', symbol: sym });
+      if (newsItems.length === 0) {
+        return JSON.stringify({ articles: [], source: 'yfinance_empty', symbol: sym });
       }
 
-      // Deduplicate by headline prefix, keep most recent first
-      const seen    = new Set();
-      const articles = raw
-        .sort((a, b) => b.datetime - a.datetime)
-        .filter(n => {
-          const key = n.headline?.substring(0, 60);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        })
-        .slice(0, 10)
-        .map(n => ({
-          headline: n.headline,
-          source:   n.source,
-          summary:  (n.summary || '').substring(0, 300),
-          url:      n.url,
-          datetime: new Date(n.datetime * 1000).toISOString().split('T')[0],
-        }));
+      const articles = newsItems.map(n => ({
+        headline: n.title,
+        source:   n.publisher,
+        summary:  (n.title || '').substring(0, 300),
+        url:      n.link,
+        datetime: n.providerPublishTime ? new Date(n.providerPublishTime * 1000).toISOString() : new Date().toISOString()
+      }));
 
-      return JSON.stringify({ articles, source: 'finnhub', symbol: sym });
+      return JSON.stringify({ articles, source: 'yahoo_finance', symbol: sym });
     } catch (err) {
-      console.error('Finnhub fetch error:', err.message);
-      return JSON.stringify({ articles: [], source: 'finnhub_error', error: err.message });
+      console.error('Yahoo news error:', err.message);
+      return JSON.stringify({ error: err.message });
     }
   },
 });
@@ -876,7 +856,7 @@ app.delete('/api/watchlist/:symbol', requireAuth, async (req, res) => {
 app.listen(PORT, () => {
   console.log(`\nServer listening on port ${PORT}`);
   console.log(`  Gemini AI    : ${process.env.GEMINI_API_KEY ? 'connected' : 'missing key'}`);
-  console.log(`  Alpha Vantage: ${AV_KEY ? 'connected' : 'missing key'}`);
-  console.log(`  Finnhub      : ${FH_KEY ? 'connected' : 'missing key'}`);
+  console.log(`  Yahoo Finance: connected (built-in)`);
+  console.log(`  Tavily API   : ${process.env.TAVILY_API_KEY ? 'connected' : 'missing key'}`);
   console.log(`  JWT Secret   : ${JWT_SECRET !== 'dev_secret_change_me' ? 'configured' : 'using default (change in production)'}\n`);
 });

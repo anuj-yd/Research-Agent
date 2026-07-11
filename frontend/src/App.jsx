@@ -13,6 +13,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, useParams, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AuthModal from './components/AuthModal';
+import api from './api';
 import { ScoreRadar, MetricsBar } from './components/Charts';
 import NewsPanel from './components/NewsPanel';
 
@@ -208,7 +209,7 @@ function HomeView({ onAnalyze, loading }) {
         onSubmit={() => { if (q.trim()) onAnalyze(q.trim()); }}
         loading={loading}
       />
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 14, maxWidth: 620, width: '100%' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', justifyContent: 'center', marginTop: 'var(--space-6)', maxWidth: 620, width: '100%' }}>
         {quickPrompts.map((p, i) => (
           <button key={i} className="btn-secondary" onClick={() => onAnalyze(p)}>{p}</button>
         ))}
@@ -231,7 +232,7 @@ function LoadingView({ query }) {
         Analyzing <strong style={{ color: 'var(--color-surface-strong)' }}>{query?.toUpperCase()}</strong>
         <span className="loading-dots" />
       </p>
-      <p style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+      <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
         LangChain agent gathering financial data &amp; news…
       </p>
     </div>
@@ -318,9 +319,9 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
       <div className="results-wrapper animate-in">
 
         {/* Navigation and action toolbar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-5)', marginBottom: 'var(--space-8)' }}>
           <button className="back-btn" onClick={onBack}><BackIco /> Back to home</button>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
             <button
               className={`action-icon-btn ${watched ? 'active-teal' : ''}`}
               onClick={addWatch}
@@ -343,9 +344,9 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
         <div className="result-header">
           <div>
             <div className="result-company">{data.companyOverview?.name || symbol.toUpperCase()}</div>
-            <div className="result-badges" style={{ marginTop: 8 }}>
+            <div className="result-badges" style={{ marginTop: 'var(--space-4)' }}>
               <span className="badge badge-blue">{symbol.toUpperCase()}</span>
-              {data.dataSource && (
+              {typeof data.dataSource === 'string' && (
                 <span className={`badge ${data.dataSource.includes('Real') ? 'badge-green' : 'badge-amber'}`}>
                   {data.dataSource.includes('Real') ? '📡 Live Data' : '🧠 AI Knowledge Base'}
                 </span>
@@ -399,24 +400,24 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
           {data.newsSentiment && (
             <div className="panel">
               <div className="panel-title">📡 News Sentiment</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
                 <span
                   className={`rec-value ${
                     data.newsSentiment.sentiment === 'Bullish' ? 'rec-buy'
                     : data.newsSentiment.sentiment === 'Bearish' ? 'rec-sell'
                     : 'rec-hold'
                   }`}
-                  style={{ fontSize: 13, padding: '4px 16px' }}
+                  style={{ fontSize: 'var(--font-size-xs)', padding: 'var(--space-2) var(--space-7)' }}
                 >
                   {data.newsSentiment.sentiment === 'Bullish' ? '📈 ' : data.newsSentiment.sentiment === 'Bearish' ? '📉 ' : '➡️ '}
                   {data.newsSentiment.sentiment}
                 </span>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, flex: 1 }}>
+                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: 0, flex: 1 }}>
                   {data.newsSentiment.newsImpact}
                 </p>
               </div>
-              {data.newsSentiment.keyHeadlines?.length > 0 && (
-                <ul className="swot-list" style={{ marginTop: 8 }}>
+              {Array.isArray(data.newsSentiment.keyHeadlines) && data.newsSentiment.keyHeadlines.length > 0 && (
+                <ul className="swot-list" style={{ marginTop: 'var(--space-4)' }}>
                   {data.newsSentiment.keyHeadlines.map((h, i) => (
                     <li key={i}><span className="swot-dot" style={{ background: 'var(--color-surface-strong)' }} />{h}</li>
                   ))}
@@ -446,9 +447,9 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
                 <div key={s.key} className={`swot-item ${s.cls}`}>
                   <div className="swot-heading">{s.label}</div>
                   <ul className="swot-list">
-                    {s.data.map((item, i) => (
+                    {Array.isArray(s.data) ? s.data.map((item, i) => (
                       <li key={i}><span className="swot-dot" />{item}</li>
-                    ))}
+                    )) : null}
                   </ul>
                 </div>
               ))}
@@ -485,7 +486,6 @@ function ResultsView({ data, symbol, onBack, onNewQuery }) {
 // ---------------------------------------------------------------------------
 
 function SavedReportsView({ onAnalyze }) {
-  const { authFetch } = useAuth();
   const { user } = useAuth();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -565,7 +565,7 @@ function SavedReportsView({ onAnalyze }) {
             <div className="report-card-right">
               <div
                 className={`rec-badge ${r.recommendation === 'BUY' ? 'rec-buy' : r.recommendation === 'PASS' ? 'rec-sell' : 'rec-hold'}`}
-                style={{ fontSize: 11, padding: '3px 10px' }}
+                style={{ fontSize: 'var(--font-size-xs)', padding: 'var(--space-2) var(--space-5)' }}
               >
                 {r.recommendation}
               </div>
@@ -669,8 +669,10 @@ function WatchlistView({ onAnalyze }) {
 /** Shown when the analysis API returns an error. */
 function ErrorBox({ msg, onBack }) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 60, gap: 16 }}>
-      <div className="error-box" style={{ maxWidth: 560 }}>⚠ {msg}</div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 60, gap: 'var(--space-7)' }}>
+      <div className="error-box" style={{ maxWidth: 560 }}>
+        ⚠ {typeof msg === 'string' ? msg : JSON.stringify(msg)}
+      </div>
       <button className="back-btn" onClick={onBack}><BackIco /> Go back</button>
     </div>
   );
